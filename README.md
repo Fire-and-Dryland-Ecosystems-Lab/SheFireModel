@@ -2,9 +2,11 @@
 
 Soil Heating in Fire (SheFire) Model:  Additional detailed files and an R package to build and use a SheFire model for how different soil depths heat and cool during fires
 
-SheFire folder contains an R package that can be installed directly from github (if you have devtools installed) using the code: install_github("FireLab/SheFireModel/SheFire")
+The model was developed by Mary K Brady in collaboration with Matthew Dickinson, Jessica Miesel, and Erin J Hanan
 
-AnnotatedScripts folder contains .Rmd files that go through the model construction step by step with detailed comments and explanation as well as a small sample data set. There may be minor variations between the newest model version and the .Rmd scripts but they should be close enough for learning how the model works
+The SheFire folder contains an R package that can be installed directly from github (if you have devtools installed) using the code: install_github("FireLab/SheFireModel/SheFire")
+
+The AnnotatedScripts folder contains .Rmd files that go through the model construction step by step with detailed comments and explanation as well as a small sample data set. There may be minor variations between the newest model version and the .Rmd scripts but they should be close enough for learning how the model works
 
 
 If you wish to contribute to this model, please do! But also please follow the best practices outlined below:
