@@ -4,7 +4,7 @@ Soil Heating in Fire (SheFire) Model:  Additional detailed files and an R packag
 
 The model was developed by Mary K Brady in collaboration with Matthew Dickinson, Jessica Miesel, and Erin J Hanan
 
-The SheFire folder contains an R package that can be installed directly from github (if you have devtools installed) using the code: install_github("FireLab/SheFireModel/SheFire")
+The SheFire folder contains an R package that can be installed directly from github (if you have devtools installed) using the code: install_github("Fire-and-Dryland-Ecosystems-Lab/SheFireModel/SheFire")
 
 The AnnotatedScripts folder contains .Rmd files that go through the model construction step by step with detailed comments and explanation as well as a small sample data set. There may be minor variations between the newest model version and the .Rmd scripts but they should be close enough for learning how the model works
 
