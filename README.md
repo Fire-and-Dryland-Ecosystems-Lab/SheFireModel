@@ -9,6 +9,7 @@ AnnotatedScripts folder contains .Rmd files that go through the model constructi
 If you wish to contribute to this model, please do! But also please follow the best practices outlined below:
 
 If you contribute or improve an application function:
+
      make sure it works with the WlkrPlot4NE.csv example data set
      put your name and contact info on the new/updated function help/documentation page
      make the help page actually helpful for folks
@@ -17,6 +18,7 @@ If you contribute or improve an application function:
      update the model version number by 0.01 (if it was 1.02, now it is 1.03)
      
 If you contribute to the model development (SheFire function):
+
      make sure it still works with WlkrPlot4NE.csv example data set
      add your name to the authors list in the package description 
      adjust the help/documentation page as needed
