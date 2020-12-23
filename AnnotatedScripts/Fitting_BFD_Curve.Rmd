@@ -1,0 +1,538 @@
+---
+title: "Fitting a BFD Curve to a Single Sensor"
+author: "MaryKBrady"
+model verson: 1.0
+---
+
+### The anticipated primary use of this script is to help users understand the concepts behind fitting BFD equations to sensor data which lays the ground work for the SheFire Model  
+
+If you want example data that will run correctly, go to https://github.com/Fire-and-Dryland-Ecosystems-Lab/SheFireModel, then go to the annotated_scripts folder, then download or otherwise copy the WlkrPlot8NE10.csv file. It is data from 10cm deep, collected by the US Forest Service FBAT on the Walker Fire, Plumas NF, CA Sept. 2019: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+
+### This script is fully annotated. The Three_Sensors_and_Regressions.Rmd file assumes a basic knowledge of the methods explained here and its comments will focus more on the additional features that come with working on three sensor and calulating regressions  
+
+This script takes a single ibutton or thermocouple file (csv) as input and calculates the equation for overall best fit and the best fit equation for a subset (this typically fits the peak, but not the full cool down, better than the overall fit). The script outputs a summary table containing the equations and time information as well as a few plots to visualize the fits. You will prompted to choose to save and/or print to Rstudio for the table and plots 
+
+The script also prints out a few messages after certain code chunks while it is running. These can be useful for any potential debugging or data reformatting that may be necessary with your files.
+
+*Note: This script asks for user input in the console at a few points. Keep the console open to see the prompts and respond.*
+
+### Set Up  
+**CSV Formatting**  
+Columns: Date.Time | TimeCounter | Temp      *Columns must be in this order*    
+Rows: each time point 
+  
+Additional formatting notes: TimeCounter must start at 1*TimeStep (not 0) in the input file. It increases by the TimeStep with each row. (TimeStep is the data logging rate from the sensor.) Both the TimeStep and TimeCounter are in minutes. The program can trim the front of the data set (before the fire) in most cases but is not currently set up to remove a diurnal peak if it does not differ much from the fire temperature peak. This can occur in deeper sensors especially from low intensity fires. In these cases, the data should either be trimmed manually to remove at least the rising portion of the diurnal peak prior to fire before running the data through this program or you can use the moving window option which in most cases can differentiate fire heating from diurnal heating.    
+  
+**User inputs**  
+User sets the input directory, file name, and save directory (where output will be saved, can be the same as input directory).  
+User also sets the increment size, cutoff time, override clipping option, moving window options. 
+
+Increment is number of TimeSteps (TimeStep is the data logging rate of sensors in minutes ie. records every 1 minute, then TimeStep is 1) included after a portion of the cool down during the fitting process. This is an iterative process: the data up through a portion of the cooling including one increment is tested, then the data with two increments, then three increments, etc. The exact size chosen should be as small as possible while keeping the program runtime reasonable. The default is 1 (the smallest possible) and it should only be increased in cases with large data sets that result in runtime constraints. Sometimes adjusting the increment can result in slightly improved or reduced fit for the best fit equation but the changes are typically less than 0.05 for RMSE values. 
+  
+CutOff time is the amount of time, in minutes, after the peak that the data set will be cut off if the temperature does not start to rise or the data set does not already end first. Default is 24 hours (1440 minutes). For long smoldering fires, this will likely need to be extended. You can shorten the CutOff if the fire was a quick flaming front with a short cool down period. Alternatively, set the cut off time as the end of a specific time range of interest. Look at your data and set a cut off that makes sense.    
+  
+Override.Clip provides the option to prevent the code from clipping the input data. If Override is set to True, the code will use the full data set for fitting. Override is only reccomended if the data has already been manually clipped as desired. This might be done in cases where data pattern is unusual or it is hard to discern the fire peak from diurnal peaks. The default is False and has the program clip the data. 
+  
+MovingWindow is a data smoothing option for setting the starting point for fitting the BFD curve that can be used if the data are noisy. It can also be used in cases with a diurnal peak pre-fire where the temperature increase from the fire may not be faster than diurnal temp rise on a point to point basis - this can happen with low intensity fire and/or deeper sensors. The default is FALSE and does not use the moving window option. Window size is relevant only if you use the moving window. The window size should be kept as low as possible to preserve the accuracy of the data clipping while still properly identifying the fire peak. The default window size is 3.   
+
+This first section is all of the user inputs to the code    
+```{r, echo=FALSE, warnings=FALSE}
+input.directory <- "~/0_my_docs/Nevada/Thesis/Methods_Paper/Model_files_inprogress/Test_Data_Files"  #folder with input file
+file.name <- "WlkrPlot8NE10.csv"   #file name
+save.directory <- "~/0_my_docs/Nevada/Thesis/Methods_Paper/BurnTableData/ModelVariationsTests" #where output will be saved
+Increment <- 1  #increment for expanding tail while fitting BFD Curve
+CutOff <- 2480  #Time (min) after the peak to cut the data (if temp does not rise or data end first)
+Override.Clip <- F  #Override.Clip will use the entire input data set, no clipping
+MovingWindow <- F #Moving Window can help find the beginning of the fire by smoothing the data
+WindowSize <- 3 #If using moving window, how large is the window in timesteps (3 would mean 3 timesteps)
+
+#if using the moving window, you need the evobiR package
+#install.packages("evobiR")
+#library(evobiR)
+
+#used for data visualization
+#install.packages(ggplot2")
+library(ggplot2)
+
+#used for (optional) additional fit analysis
+#install.packages("nlstools")
+#library(nlstools)
+
+#used to export results
+#install.packages("openxlsx")
+library(openxlsx)
+```
+
+**Functions**  
+Define functions used in this script
+```{r, echo=FALSE, warnings=FALSE}
+#This is the BFD equation:
+BFD.equation <- function(x, InitTemp.value, MaxTemp.value, TimeAtMax.value, Shape.value)
+  {InitTemp.value + (MaxTemp.value-InitTemp.value)*exp(-(((log(x))-log(TimeAtMax.value))^2)/Shape.value)}
+```
+
+**Read data and a few quick checks before we start**  
+```{r, echo=FALSE, warnings=FALSE}
+setwd(input.directory)      #working directory
+input <- read.csv(file.name)#read file
+save.name <- sub(".csv", "", file.name) #used later in code for saving output
+TimeStep <- input[1,2]  #TimeStep (data logging rate in sensors) based on first row of input
+if (TimeStep != 0) {    #Checks timestep
+  cat("The TimeStep is set at", TimeStep, "minutes. \nAdjust TimeCounter in the input csv if this is not the data logging rate.")
+} else if (TimeStep == 0) {
+  stop("Error: TimeCounter should start at one TimeStep, not zero. Please fix input csv")
+}
+if (Override.Clip == T){  #confirms override
+  if (interactive()){
+    selection <- readline(prompt=cat("Warning: You have chosen Overrride.Clip which will prevent the code from clipping the input data set. \nIf the data set has not been precisely clipped by hand, this will likely lead to a poor fit. \nPress Enter to continue or type 'no' then press Enter to stop script"))
+    if (selection == "no"){
+      stop("Override.Clip setting is in the first code chunk")
+    }
+  }
+}
+```
+
+**Plotting**   
+```{r}
+#Plotting customization for all plots
+PlotTheme <- theme(panel.background = element_rect(fill = "white"),
+                 panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+                 plot.title = element_text(colour = "black", face = "bold", size = rel(1.7), hjust = 0.5),
+                 axis.line = element_line(size = 1, colour = "black"),
+                 axis.title = element_text(colour="black", size = rel(1.2)),
+                 axis.text = element_text(colour = "black", size = rel(1)),
+                 legend.text = element_text("black", size = rel(1)),
+                 legend.key = element_rect(fill = NA), 
+                 legend.spacing = unit(0.05, "cm"),
+                 legend.box.background = element_blank(),
+                 legend.title = element_blank(),
+                 legend.position = c(0.95, 0.95),
+                 legend.justification = c("right", "top"),
+                 legend.box.margin = margin(0, 0, 0, 0, "cm")
+                 )
+#plot of raw data
+ggplot(input, aes(TimeCounter, Temp)) + 
+  geom_point() +
+  ggtitle("Input Data") + 
+  labs(y="Temperature (C)", x = "Time (min)") + 
+  PlotTheme
+```
+
+**Rate of Temp Change (C/min) and Maximum Temp Reached**  
+Calculate rate of temp change per minute and find the highest rate - this will be during soil heating from the fire even if there is a pre-fire diurnal peak. Possible exception is pre-fire diurnal peak with a very low intensity fire or a deep sensor.    
+Temperature increases dramatically and consistently with fire so this is a way to help narrow down the beginning of the fire effects  
+   *there could be issues if temp rise starts and stops / jumpy data -> see moving window to smooth rate of temp change
+```{r}
+MaxTemp <- max(input$Temp)                        #maximum temp reached
+MaxInd <- which.max(input$Temp)                   #row number when MaxTemp is reached
+NumRows <- nrow(input)                            #number of rows in the clipped data set
+if (Override.Clip == F) {
+  TempRate <- matrix(0, nrow= NumRows, ncol= 1)   #set up blank matrix
+  for (a in 1:NumRows-1) {                        #fill matrix with temp changes
+    TempRate[a,1] <- (input[a+1,3] - input[a,3])/TimeStep #Temp change = next.temp-temp/timestep
+  }
+  MaxRate <- max(TempRate)                        #Highest rate of change
+}
+paste("Max temperature reached is", MaxTemp, "degrees C")
+```
+  
+**Set Start Index with moving window**    
+This code makes a moving window that takes the mean of the rates per minute. Uses EvobiR package (at top of code). It then uses the max positive rate of change from that set of means to find last time when the average rate was 0 before the max rate (heating from the fire). The time at the last zero rate becomes the start of the data set for fitting - StartInd. Temperature at that time becomes the initial temperature for fitting - InitTemp
+If you are interested in the rate of soil heating, this is the code section to work with
+```{r}
+if (MovingWindow == T & Override.Clip == F) {
+  TempRate.mw <- SlidingWindow("mean", TempRate, WindowSize, 1) #calculates the mean value for each window
+      #1 is the step between windows. don't reccomend changing
+  MaxTR.mwInd <- which.max(TempRate.mw)  #index at max rate
+  for (b in 1:MaxTR.mwInd) {             #finds last 0 rate before the max
+    if (TempRate.mw[b] == 0){
+      StartInd <- b                      #StartInd is where data set will be clipped
+      InitTemp <- input$Temp[b]          #Temp at StartInd
+    }
+  }
+}
+```
+
+**Set start index not using the moving window**  
+Find last time rate was 0 before temp increase begins (indicates start of fire effects). That time becomes the start of the dataset for fitting - StartInd. The temperature at that time becomes intital temp for fitting - InitTemp  
+```{r}
+if (MovingWindow == F & Override.Clip == F) {
+  MaxTRInd <- which.max(TempRate)   #Max Temp Rate Index - row at max rate
+  for (b in 1:MaxTRInd) {           #Searches prior to MaxTRInd for last 0 rate
+    if (TempRate[b] == 0){
+      StartInd <- b                 #StartInd will be where data set is clipped
+      InitTemp <- input$Temp[b]     #Initial Temp - temp at StartInd
+    }
+  }
+}
+```
+
+**Setting end of data set**  
+This section sets the end of the data set if the temperature starts to rise again after post-fire cooling or reaches 24 hours (or other user-defined value) after the peak temperature.  
+```{r}
+if (Override.Clip == F) {
+  for (e in MaxInd:NumRows) {                   #after the temperature peak
+    if (TempRate[e] > 0) {                      #if the temperature starts to rise
+      EndInd.1 <- e                             #set that point a possible end point
+      break                                     #leave loop so it stops at first temp increase
+    } else EndInd.1 <- NumRows                  #if no temp increase post peak, set possible end point 
+  }                                                #to end of data
+  EndInd.2 <- MaxInd + (CutOff/TimeStep)        #CutOff time after the temp peak as possible end point
+
+  if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){#find if the temp rise post peak, the CutOff time, or 
+    EndInd <- EndInd.1                              #end of data set happens first then set as EndInd
+    print("EndInd (end of the data used for fitting) was set when the temperture began to rise again after the peak")
+  } else if (EndInd.2 < EndInd.1 & EndInd.2 < NumRows) {   
+    EndInd <- EndInd.2
+    print("EndInd (end of the data used for fitting) was set by the specified CutOff time after the temperature peak")
+  } else {
+    EndInd <- nrow(input)
+    print("EndInd (end of the data used for fitting) was set as the end of the input data set")
+  }
+}
+```
+
+**Clipping the data set**  
+This section clips the data set from StartInd to EndInd. It then resets the TimeCounter to start at the new beginning of the data.  *Starts TimeCounter at 0*  
+```{r}
+if (Override.Clip == F) {
+  input.clipped <- input[c(StartInd:EndInd),]               #clip input data set
+  input.clipped$TimeCounter <- input.clipped$TimeCounter - (StartInd*TimeStep)  #restart TimeCounter
+  rownames(input.clipped) = seq(length=nrow(input.clipped)) #reset row names
+  MaxInd <- which.max(input.clipped$Temp)                   #reset index for max temp
+} else {
+  input.clipped <- input                                    #no clipping
+  InitTemp <- input.clipped$Temp[1]                         #sets initial temp
+}
+```
+
+**Setting the post peak lag**  
+Starting from the peak (MaxInd), find time when temp has lost 63% of the temp rise - PostPeakLag    
+```{r}
+PostPeakLag <- nrow(input.clipped)      #Set PPL to end of the data
+for (c in MaxInd:nrow(input.clipped)) { #Peak to the end of the data
+  if (input.clipped[c,3] > (InitTemp + (MaxTemp-InitTemp)*(1/2.71828))){
+    PostPeakLag <- c                    #row number at 63% of temp rise lost
+  }
+}
+if (PostPeakLag == nrow(input.clipped)) { #if 63% of temp rise is never lost, PPL is still set to end of data
+  print("Warning: PostPeak Lag is the end of the data. Soil cooling does not reach 63% loss of temp rise")
+}
+```
+
+**Fitting the BFD curve with an increasingly long tail**    
+This section fits the curve to increasingly long subsets of the data. It starts with StartInd to PostPeakLag and then adds one Increment at a time to the PostPeakLag. This enables the code to find the best fit over a subsection of the data which typically means the best fit for looking specifically at the temp peak    
+The RMSE and curve parameters for the best fit of each data set length are put into the Results matrix
+```{r}
+TailSize <- nrow(input.clipped) - PostPeakLag #amount of data after PPL
+Iterations <- floor(TailSize/Increment)       #How many times can the increment be added
+if (Iterations == 0){                         #If there is no tail (PPL is end of data) set iterations to 1 so
+  Iterations <- 1                               #the for loop still runs and gives an equation
+}                                                       
+Results <- matrix(nrow = Iterations, ncol = 6, dimnames = list(c(), c("RMSE", "Pearson", "InitTemp", "MaxTemp", "TimeAtMax","Shape")))
+
+for (d in 1:Iterations) {                     #for all  tail lengths
+  if (Iterations == 1){                       #if PPL is the end of the data then don't add more data
+    Data.fit <- input.clipped[c(1:PostPeakLag), c(1:3)]     
+  } else {                                    #if PPL is not end of data, subset data to length PPL+d increments
+      Data.fit <- input.clipped[c(1:(PostPeakLag+(d)*Increment)), c(1:3)] 
+  }                                                                         
+  y.fit <- Data.fit$Temp                      #y= temps in subset 
+  x.fit <- Data.fit$TimeCounter               #x= time in subset, started at 0
+  MaxInd.fit <- which.max(Data.fit$Temp)      #index in subset for max temp
+  TimeAtMax.fit <- x.fit[MaxInd.fit]                                          
+  #nls determines the nonlinear least squares estimates for the parameters of a nonlinear model
+  BFD.fit <- nls(y.fit~BFD.equation(x.fit, InitTemp.value, MaxTemp.value, TimeAtMax.value, Shape.value), 
+              start = list(InitTemp.value = InitTemp, MaxTemp.value = MaxTemp, TimeAtMax.value = TimeAtMax.fit,
+                           Shape.value = 0.1))  
+  RMSE <- summary(BFD.fit)$sigma              #residual standard error=root mean square error
+  Parameters.fit <- summary(BFD.fit)$parameters[,1]#equation parameters
+  InitTemp.fit <- Parameters.fit[1]           #isolate parameter values
+  MaxTemp.fit <- Parameters.fit[2]
+  TimeAtMax.fit <- Parameters.fit[3]
+  ShapeConstant.fit <- Parameters.fit[4]
+  Temp.fit <- BFD.equation(x.fit, InitTemp.fit, MaxTemp.fit, TimeAtMax.fit, ShapeConstant.fit) #Make equation for 
+  #calculating Pearson coefficient
+  Pearson <- cor.test(Temp.fit, Data.fit$Temp, method = "pearson") #pearson correlation coefficient
+  Results[d,1:6] <- c(RMSE, Pearson$estimate, Parameters.fit) #add to matrix, row # is # of for loop iterations
+}                                                                   
+``` 
+
+**Recreating the equation that had the lowest RMSE**  
+This section finds the lowest RMSE and rebuilds that equation  
+It also recreates the data subset that resulted in the min RMSE and recreates the longest data set that had an equations calculated for it. The full data range may differ 
+```{r}
+Results.df <- data.frame(Results)         #Data frame is easier to manipulate than matrix
+MinRMSE <- min(Results.df$RMSE)           #pulls the lowest RMSE from Results
+MinRMSEInd <- which.min(Results.df$RMSE)  #row number (number of iterations) at lowest RMSE
+
+Parameters.minRMSE <- Results.df[MinRMSEInd,]   #pull equation parameters at lowest RMSE from Results
+InitTemp.minRMSE <- Parameters.minRMSE$InitTemp #isolates parameter values
+MaxTemp.minRMSE <- Parameters.minRMSE$MaxTemp
+TimeAtMax.minRMSE <- Parameters.minRMSE$TimeAtMax
+ShapeConstant.minRMSE <- Parameters.minRMSE$Shape
+Pearson.minRMSE <- Parameters.minRMSE$Pearson
+
+#this subsets the data to the minRMSE range and sets an x and y
+MinRMSESubset <- input.clipped[c(1:(PostPeakLag+(MinRMSEInd-1)*Increment)), c(1:3)]
+y.minRMSE <- MinRMSESubset$Temp
+x.minRMSE <- MinRMSESubset$TimeCounter
+EndofFit.minRMSE <- max(x.minRMSE)  #the end of minRMSE subset, used to mark full plot
+
+#This sets x and y based on the full span of the data, Start Index through EndInd
+y.full <- input.clipped$Temp
+x.full <- input.clipped$TimeCounter                     
+
+#This is the equation that produced the lowest RMSE over a subset of data
+MinRMSEEquation.full <- BFD.equation(x.full, InitTemp.minRMSE, MaxTemp.minRMSE, TimeAtMax.minRMSE, ShapeConstant.minRMSE)   #Calulated across the entire range of the data (StartInd to EndInd) for plotting
+MinRMSEEquation.minRMSE <- MinRMSEEquation.full[1:length(x.minRMSE)] #Clip to fitted subset
+```
+  
+**Best fit for full data range**  
+This section recreates the equation that best fit the full data range (post StartInd), it is not optimized to fit to a specific subset like the minRMSE equation  
+```{r}
+Parameters.full <- Results.df[Iterations,]  #pull parameter from Results
+RMSE.full <- Parameters.full$RMSE           #pull RMSE
+InitTemp.full <- Parameters.full$InitTemp   #isolate parameter values
+MaxTemp.full <- Parameters.full$MaxTemp
+TimeAtMax.full <- Parameters.full$TimeAtMax
+ShapeConstant.full <- Parameters.full$Shape
+Pearson.full <- Parameters.full$Pearson
+
+#create the equation with the parameter values
+BestFullEquation.full <- BFD.equation(x.full, InitTemp.full, MaxTemp.full, TimeAtMax.full, ShapeConstant.full)
+```
+
+Creates a summary table with the two equations and information to convert StartInd to the time values from the input. Then prints or saves to a file and prints the table
+```{r}
+Results.df <- Results.df[,c("InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")] #reorder
+summary.table <- c("","Best subset fit", "Best overall fit", "Formula", "StartInd to real time conversion", "StartInd", "End of subset data", "End of data set used for overall")
+summary.table.df <- data.frame(summary.table)
+summary.table.df[2:3, 2:7] <- (Results.df[c(MinRMSEInd, Iterations),]) #pull relevant results
+summary.table.df[4,2:3] <- c("Temp = InitTemp + (MaxTemp - InitTemp)e^(-z)", "z = (log(time) - log(TimeAtMax))^2 / ShapeConstant")
+summary.table.df[6,2] <- c(as.character(input.clipped$Date.Time[1]))
+summary.table.df[7,2:3] <- c(as.character(input.clipped$Date.Time[(MinRMSEInd+PostPeakLag)]), paste0("Time elapsed (min): ", (MinRMSEInd+PostPeakLag)*TimeStep))
+summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", nrow(input.clipped)*TimeStep))
+summary.table.df[1,] <- c("", "InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")
+colnames(summary.table.df) <- c("","", "", "", "", "", "")
+
+Z <- T
+while (Z == T) {
+  if (interactive()) {
+    selection <- readline(prompt = cat("Save or print summary table? \nType 'save.table' to save it to the working directory (excel, named:'InputFile'_table) \nType 'print.table' to only print it in Rstudio after this code chunk"))
+  }
+  if (selection == "save.table") {
+    setwd(save.directory) #must be re-stated in this code chunk for saving
+    write.xlsx(summary.table.df, paste0(save.name, "_table.xlsx"))
+    print(summary.table.df)
+    Z <- F
+  }else if (selection == "print.table") {
+    print(summary.table.df)
+    Z <- F
+  }else {print("Invalid entry. Try again")}
+}
+```
+
+**Additional fit information**  
+Gives confidence intervals and some plots of residuals for the full equation.   
+```{r}
+Z <- T
+while (Z == T) {
+  selection <- readline(prompt= cat("Do you want the additional fit information? Type 'yes' or 'no' then press enter: "))
+  if (selection == "yes"){
+    confintervals <- confint2(BFD.fit, level = 0.95)  
+    confintervals                #gives a matrix with range for each parameter
+    residuals <- nlsResiduals(BFD.fit)
+    plot(residuals, which = 0)   #series of graphs with residuals and Q-Q
+    Z <- F
+  }else if (selection == "no"){
+    Z <- F
+  }else {
+    print("Invalid entry. Try again.")
+  }
+}
+```
+
+**Plotting**  
+This section builds the plots - print and or saving to a file is in the next code chunk. Plots help visualize fits and compare subset (typically peak oriented) to overall (typically a littel less precise for peak)  
+The first plot is the min RMSE equation plotted on just the subsection that it was made to fit  
+The second plot is the min RMSE equation plotted on all the data from Start Index to the end   
+The third plot is the min RMSE equation and the equation that best fit full data range (from StartInd) 
+The fourth plot is the best fit for full data range (from StartInd)
+```{r echo=FALSE}
+#Plot StartInd to end of fit
+plot1 <- ggplot(MinRMSESubset, aes(TimeCounter, Temp)) + 
+  geom_point(aes(shape = "Data")) +
+  geom_line(aes(y = MinRMSEEquation.minRMSE, linetype = "Best fit over a subset"), color = "blue", size = 1) +
+  ggtitle("Best fit for a subset") + 
+  labs(y="Temperature (C)", x = "Time (min)", shape = "", linetype = "") + 
+  PlotTheme
+
+#Plot StartInd to the end
+plot2 <- ggplot(input.clipped, aes(TimeCounter, Temp)) + 
+  geom_point(aes(shape= "Data")) +
+  geom_line(aes(y = MinRMSEEquation.full, linetype = "Best fit for a subset"), color = "blue", size = 1) +
+  geom_vline(xintercept = EndofFit.minRMSE, linetype = "dotted", color = "red", size = 0.9) +
+  ggtitle("Best fit for a subset plotted on full data set") + 
+  labs(y="Temperature (C)", x = "Time (min)", shape = "") + 
+  annotate("text", x = EndofFit.minRMSE, y = MaxTemp, label = " end of subset", hjust = 0) +
+  PlotTheme
+
+#Plot StartInd to the end for Best Full Equation
+plot3 <- ggplot(input.clipped, aes(TimeCounter, Temp)) + 
+  geom_point(aes(shape = "Data")) +
+  geom_line(aes(y = BestFullEquation.full, linetype = "Best overall fit"), color = "blue", size = 1) +
+  geom_line(aes(y = MinRMSEEquation.full, linetype = "Best fit for a subset"), color = "blue", size = 1) +
+  geom_vline(xintercept = EndofFit.minRMSE, linetype = "dotted", color = "red", size = 0.9) +
+  ggtitle("Best fit for a subset and best overall fit") + 
+  labs(y="Temperature (C)", x = "Time (min)") + 
+  PlotTheme +
+  scale_linetype_manual(values = c("dashed", "solid"), name = element_blank(), labels = c("Best fit for a subset", "Best overall fit")) +
+  annotate("text", x = EndofFit.minRMSE, y = MaxTemp, label = " end of subset", hjust = 0)
+
+#Plot StartInd to end with just the full equation
+plot4 <- ggplot(input.clipped, aes(TimeCounter, Temp)) + 
+  geom_point(aes(shape = "Data")) +
+  geom_line(aes(y = BestFullEquation.full, linetype = "Best overall fit"), color = "blue", size = 1) +
+  ggtitle("Best overall fit") + 
+  labs(y="Temperature (C)", x = "Time (min)", shape = "", linetype = "") + 
+  PlotTheme 
+```
+
+This section gives options for what plots to save and/or print  
+```{r}
+Z <- T
+Z1 <- T
+Z2 <- T
+Z3 <- T
+Z4 <- T
+setwd(save.directory)  #must be restated in this code chunk for saving
+plotlist <- list(plot1, plot2, plot3, plot4)
+while (Z == T) {
+  if (interactive()) {
+    selection <- readline(prompt = cat("Save or print plots? \nType 'save.all' to save all four plots to the working directory (jpeg, named:'InputFile'_plot#) \nType 'save.choose' to go through which plots to save \nType 'print.all' to print all plots in Rstudio after this code chunk \nType 'print.choose' to go through which plots to print in Rstudio"))
+  }
+  if (selection == "save.all") {
+    g <- 1
+    for (f in plotlist) {
+      ggsave(paste0(save.name,"_plot", g, ".jpeg"), plot = f)
+      g <- g+1
+    }
+    Z <- F
+  }else if (selection == "print.all") {
+    for (f in plotlist) {
+      print(f)
+    }
+    Z <- F
+  }else if (selection == "save.choose") {
+    for (f in 1:4) {
+      if (f == 1) {
+        while (Z1 == T){
+          selection <- readline(prompt = cat("Do you want to to save plot1: best fit over a subset? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[[f]])
+            Z1 <- F
+          }else if (selection == "no") {
+            Z1 <- F
+          }else {
+            print("Invalid entry. Try again")
+          } 
+        }
+      }else if (f == 2) {
+        while (Z2 == T) {
+          selection <- readline(prompt = cat("Do you want to to save plot2: best fit over a subset, plotted on full data range? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[f])
+            Z2 <- F
+          }else if (selection == "no") {
+            Z2 <- F
+          }else {
+            print("Invalid entry. Try again.")
+          }
+        }
+      }else if (f == 3) {
+        while (Z3 == T) {
+          selection <- readline(prompt = cat("Do you want to to save plot3: best fit over a subset and best full fit, plotted on full data range? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[f])
+            Z3 <- F
+          } else if (selection == "no") {
+            Z3 <- F
+          }else {
+            print("Invalid entry. Try again")
+          }
+        }
+      }else if (f == 4) {
+        while (Z4 ==T) {
+          selection <- readline(prompt = cat("Do you want to to save plot4: best full fit? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[f])
+            Z4 <- F
+          } else if (selection == "no") {
+            Z4 <- F
+          }else {
+            print("Invalid entry. Try again")
+          }
+        }
+      }else {print("something went wrong with save.choose")}
+    }
+    Z <- F
+  }else if (selection == "print.choose") {
+    for (f in 1:4) {
+      if (f == 1) {
+        while (Z1 == T) {
+          selection <- readline(prompt = cat("Do you want to to print plot1: best fit over a subset? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            print(plotlist[[f]])
+            Z1 <- F
+          } else if (selection == "no") {
+            Z1 <- F
+          }else{
+            print("Invalid entry.Try again")
+          } 
+        }
+      }else if (f == 2) {
+        while (Z2 == T) {
+          selection <- readline(prompt = cat("Do you want to to print plot2: best fit over a subset, plotted on full data range? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            print(plotlist[[f]])
+            Z2 <- F
+          }else if (selection == "no") {
+            Z2 <- F
+          }else {
+            print("Invalid entry. Try again")
+          }
+        }
+      }else if (f == 3) {
+        while (Z3 == T) {
+          selection <- readline(prompt = cat("Do you want to to print plot3: best fit over a subset and best full fit, plotted on full data range? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            print(plotlist[[f]])
+            Z3 <- F
+          }else if (selection == "no") {
+            Z3 <- F
+          }else {
+            print("Invalid entry. Try again")
+          }
+        }
+      }else if (f == 4) {
+        while (Z4 == T) {
+          selection <- readline(prompt = cat("Do you want to to print plot4: best full fit? \n Type 'yes' or 'no'"))
+          if (selection == "yes") {
+            print(plotlist[[f]])
+            Z4 <- F
+          }else if (selection == "no") {
+            Z4 <- F
+          }else {
+            print("Invalid entry. Try again")
+          }
+        }
+      }else {print("something went wrong with print.choose")}
+    }
+    Z <- F
+  }else {print("Invalid entry. Try again678")}
+}
+print("This is the end of the script")
+```
+
+

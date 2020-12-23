@@ -1,0 +1,732 @@
+---
+title: "Three temperature sensors and calculating regressions"
+author: "MaryKBrady"
+model version: 1.0
+---
+
+###The anticipated primary use of this script is go through the SheFire function in the SheFire R package in detail. This is the function that builds the soil heating model so this script is a detailed explanation of how the model is constructed. It has some information about fitting BFD equations to the sensor data but a more thurough expaination of that process can be found in Fitting_BFD_Curve.Rmd file
+
+If you want example data that will run correctly, go to https://github.com/Fire-and-Dryland-Ecosystems-Lab/SheFireModel, then go to the SheFire folder, then the inst folder, then the external folder, then download or otherwise copy the WlkrPlot4NE.csv file. It is data collected by the US Forest Service FBAT on the Walker Fire, Plumas NF, CA Sept. 2019: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+
+### This script deals with one set of sensors at a time (3 sensors)    
+*Note: For more extended comments/explanations, please see "Fitting_BFD_Curve.Rmd". Comments here will focus on changes made to that basic code for processing three co-located sensors at different depths and expanding model with the parameter regression equations*  
+
+This script takes a csv file with three temperature traces at different depths as input and calculates the equations for each depth with the option to also calculate regressions that allow interpolation and extrapolation to other soil depths. The script outputs a summary table containing the equations and time information as well as a few plots to visualize the fits for the three measured depths. You will prompted to choose to save and/or print (in Rstudio) the table and plots. For the regressions, you will be asked if you would like to save an Rdata file containing the relevant functions and equations. That file can then be loaded into other R files (using model <- load('file.Rdata')) for your specific applications of the regressions (see SheFire R package for examples and a few useful application functions. The Rdata file is equivalent to the function output from SheFire in the SheFire package.) See below for options to save all output or print all output.
+
+The script also prints out a few messages after certain code chunks while it is running. These can be useful for any debugging or data reformatting that may be necessary with your files.
+
+*Note: This script asks for user input in the console at a few points. Keep the console open to see the prompts and respond*
+ 
+### Set Up  
+**CSV Formatting**  
+Columns: Date.Time | TimeCounter | Temp_S | Temp_M | Temp_D   *columns must be in this order*    
+S - shallow, M - middle, D - deep
+Rows: each time point
+  
+Additional formatting notes: TimeCounter must start at 1*TimeStep (not 0) in the input file. TimeStep (data logging rate in the sensors) and TimeCounter are both in minutes.    
+  
+**User inputs**  
+User sets working directory (folder with input file), save directory (where output will be saved to, can be the same as working directory), file name, sensor depths, cut off time, override clipping options, moving window options, print or save options, and decides whether or not to calculate the regressions and use a time buffer.    
+ 
+Sensor depths are the depths (in cm) of your three sensors.  
+  
+CutOff time is the time (min) after the shallow sensor's maximum temperature that the code will cut off the data set for fitting. It will use this cut off time unless the temps rise again (ie diurnal heating) or the data set ends first in which cases, those will be set as the end points. The default is 24 hours (1440 min) but look at your data and do what makes sense (Some hot, smoldering fires will be cooling for more than 24 hrs).   
+  
+Override.Clip default is False. Only change this if you have manually clipped the input data to exactly how you want it analyzed.
+  
+MovingWindow options allow for some data smoothing when locating the starting point for the shallow sensor. The default is to not use this option, but if you do use it, the default window size is 3. 
+
+Regression default is True. This will have the code calculate the parameter regressions which can be used to extrapolate or interpolate to other soil depths. Set to False if you are only interested in the equations for the sensor depths.
+
+TimeBuffer is the time (min) added before the temperature begins to rise for the shallow sensor. If you chose not to calculate regressions, set this to 0. If you do not care about extrapolating to depths shallower than your shallow sensor, set TimeBuffer to 0. The buffer is needed to be able to extrapolate to shallower depths with the parameter regressions later on. You want to keep the TimeBuffer as short as possible because the longer it is, the worse the fits for equations and regressions. But if it is too short, you will not be able to extrapolate much shallower than the shallow sensor. (See comments in the regression section of this script if you want a more detailed explanation). The default is set to 30 minutes
+ 
+PrintOrSave is an option that tells the script to print all output in Rstudio ("print"), save all output (and print it in Rstudio) ("save"), or ask the user to save or print for each output as it comes up in the script ("choose"). Output includes plots of input data with the fitted equations, summary table of the fitted equations, summary table of the regression equations, and an Rdata file of the variables/equations/etc needed to run later application functions with the model (if nothing else, you probably want to save that file). If you select "choose" for this setting, be sure to keep the console open to reply to the prompts.
+  
+This first section is all of the user inputs to the code.    
+```{r, warnings=FALSE}
+working.directory <- "Where is your test data saved" #where is the input file
+file.name <- "Your_data.csv"   #name of input file
+save.directory <- "Where do you want outputs saved (if you're saving any)" #where output will be saved, can be left blank if you are not saving anything
+SensorDepths <- c(5, 10, 15)#Must be listed shallowest to deepest
+CutOff <- 1440  #Time (min) after the peak to cut the data (if temp does not rise or data end first)
+Override.Clip <- F  #Override.Clip will use the entire input data set, no clipping
+MovingWindow <- F #Moving Window can help find the beginning of the fire by smoothing the data
+WindowSize <- 3 #If using moving window, how large is the window in timesteps (3 would mean 3 timesteps)
+Regression <- T #T -> calculate parameter regressions for later interpolation/extrapolation of other soil depths
+Res <- 1  #Temporal resolution in minutes for the output values of the equations fit to the input data: BFDEquation.S - temperatures from the equation fit to the shallow sensor data every "res" minutes
+TimeBuffer <- 30  #Time (min) added before shallow temps rise, set to 0 if not calculating (shallow) regressions
+PrintOrSave <- "print" #"print", "save", "choose" - prints, saves and prints, or asks for user choice for all output
+
+#if using the moving window, you need the evobiR package
+#install.packages("evobiR")
+#library(evobiR)
+
+#used for data visualization
+#install.packages("ggplot2")
+#install.packages("ggpubr")
+library(ggplot2)
+library(ggpubr) 
+
+#used for optional additional fit analysis
+#install.packages("nlstools")
+library(nlstools)
+
+#used for saving excel output files
+#install.packages("openxlsx")
+library(openxlsx)
+```
+
+**Functions**  
+Define functions used in this script
+```{r, echo=FALSE, warnings=FALSE}
+#This is the BFD equation:
+BFDEquation <- function(x, InitTemp.value, MaxTemp.value, TimeAtMax.value, Shape.value)
+{InitTemp.value + (MaxTemp.value-InitTemp.value)*exp(-(((log(x))-log(TimeAtMax.value))^2)/Shape.value)}
+
+#power model - works well for Shape regression, sometimes works well for Initial Temp regression
+Power.equation <- function(x, a, b) {a*(x^-b)}
+```
+
+**A few quick checks before we start**  
+Sets working directory, reads data, sets the save.name for future use, and reads the timestep. If timestep is 0, throws an error and stops the script. Double checks Override.Clip if set to T
+```{r, echo=FALSE, warnings=FALSE}
+setwd(working.directory)      #set directory
+input <- read.csv(file.name)  #read in file
+save.name <- sub(".csv", "", file.name) #used later in code for saving output
+TimeStep <- input[1,2]  #TimeStep (data logging rate in sensors) based on first row of input
+if (TimeStep != 0) {  #Checks timestep
+  cat("The TimeStep is set at", TimeStep, "minutes. \nAdjust TimeCounter in the input csv if this is not the data logging rate.")
+} else if (TimeStep == 0) {
+  stop("Error: TimeCounter should start at one TimeStep, not zero. Please fix input csv")
+}
+if (Override.Clip == T){ #confirms override
+  if (interactive()){
+    selection <- readline(prompt=cat("Warning: You have chosen Overrride.Clip which will prevent the code from clipping the input data set. \nIf the data set has not been precisely clipped by hand, this will likely lead to a poor fit. \nPress Enter to continue or type 'no' then press Enter to stop script"))
+    if (selection == "no"){
+      stop("Override.Clip setting is in the first code chunk")
+    }
+  }
+}
+if (PrintOrSave != "print" & PrintOrSave != "save" & PrintOrSave != "choose"){ #check PrintOrSave selection
+  if (interactive()){
+    PrintOrSave <- readline(prompt = cat("Your PrintOrSave selection was invalid. Pleae type: \n'save' to save and print all output \n'print' to only print all the output \n'choose' to select to save or print for each output individually"))
+  }
+}
+for (b in c("Date.Time", "TimeCounter", "Temp_S", "Temp_M", "Temp_D")){
+    if (!(b %in% names(input))){
+      stop(paste("column name", b, "not found in file"))
+    }
+  }
+```
+
+**Plotting**   
+```{r, echo=F, warnings=F}
+#Plotting customization for plots
+PlotTheme <- theme(panel.background = element_rect(fill = "white"),
+                 panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+                 plot.title = element_text(colour = "black", face = "bold", size = rel(1.7), hjust = 0.5),
+                 axis.line = element_line(size = 1, colour = "black"),
+                 axis.title = element_text(colour="black", size = rel(1.2)),
+                 axis.text = element_text(colour = "black", size = rel(1))
+                 )
+#plot input data
+ggplot(input, aes(x = TimeCounter)) + 
+  geom_point(aes(y = Temp_S), color = "purple") +
+  geom_point(aes(y = Temp_M), color = "blue") +
+  geom_point(aes(y = Temp_D), color = "green") +
+  ggtitle("Input Data") + 
+  labs(y="Temperature (C)", x = "Time (min)") + 
+  PlotTheme
+```
+
+**Find Start Index based on shallow sensor**  
+Start Index (StartInd) is based on the shallow sensor because it will heat up first. StartInd will be the same for all three sensors to make comparisons between depths straightforward and keep later regressions (for exprapolating and interpolating unmeasured soil depths) consistent.   
+**Rate of Temp Change (C/min)**  
+```{r}
+Data_S <- input[,3] #pull out shallow sensor data
+NumRows <- length(Data_S)                                            
+if (Override.Clip == F) {
+  TempRate <- matrix(0, nrow= NumRows, ncol= 1) #initialize matrix                            
+  for (a in 1:NumRows-1) {                                                  
+    TempRate[a,1] <- (Data_S[a+1] - Data_S[a])/TimeStep #Temp change = next.temp-temp/timestep
+  }
+}
+```
+**Set Start Index**   
+Either uses moving mean or not based on setting at the top of the code. Default does not using the moving window to smooth the data. StartInd is where the data will be clipped on the front end. If the code cannot find a good start point (0 rate of temp change) or the TimeBuffer causes the StartInd to be negative, it defaults to StartInd as the first time point in the input data. If you are interested in how fast soil heats, this is the section you should focus on
+```{r}
+if (MovingWindow == T & Override.Clip == F) {
+  TempRate.mw <- SlidingWindow("mean", TempRate, WindowSize, 1) #calculates the mean rate for each window
+  prespike <- TempRate.mw[1:(which.max(TempRate.mw))] #mean rates up to max mean rate (occurs early in heating)
+  indices <- which(prespike == 0) #all times before max mean rate when rate is zero
+  StartInd <- tail(indices, n=1) - round(TimeBuffer/TimeStep) #StartInd is the time of last 0 mean rate moved 'TimeBuffer' minutes (rounded to nearest whole number) earlier
+}
+if (MovingWindow == F & Override.Clip == F) {
+  prespike <- TempRate[1:(which.max(TempRate))] #all rates up to the max rate (occurs early in heating)
+  indices <- which(prespike == 0) #all times before max rate when rate is zero
+  StartInd <- tail(indices, n=1) - round(TimeBuffer/TimeStep)#StartInd is the time of last 0 rate moved 'TimeBuffer' minutes (rounded to nearest whole number) earlier
+  if(!(length(indices)>=1)){ #if there is never a change of 0 
+    StartInd <- 1*TimeStep #then set the StartInd to the beginning
+    print("StartInd was set to first time point because there was no time with 0 temp change before the peak. You may want to look at your data and set the StartInd manually (adjust the code or clip the input data to a logical start point)")
+  }
+  if(StartInd <= 0){  #if TimeBuffer sets StartInd to be negative
+    StartInd <- 1*TimeStep #then set set StartInd to the beginning
+    print("StartInd was set to the first time point because the TimeBuffer was set too large for this input data (it would have set the StartInd prior to the start of the data)")
+  }
+}  
+```
+  
+**Skip Post Peak Lag entirely**  
+Used in single sensor code to find the best fit. Here it is not used in order to standardize the end point of all three sensors. The resulting fits are not as good as they might be with their unique, ideal subsets but it allows for better comparisons and regressions later on.  
+  
+**Setting end of data set**  
+This section sets the end of the data set if the temperature starts to rise again after post-fire cooling or reaches the cut off time after the peak temperature. Need to cut off the data somewhere.
+```{r}
+if (Override.Clip == F) {
+  MaxInd <- which.max(Data_S) #when is the temp peak
+  postpeak <- TempRate[(which.max(Data_S)):NumRows] #rates of temp change after temp peak
+  indices <- which(postpeak > 0) #find times when heating again
+  EndInd.1 <- indices[1] #first time that heating occurs
+  if (length(indices) == 0){ #if no heating post peak, set possible end point to end of data
+    EndInd.1 <- NumRows
+  }
+  EndInd.2 <- MaxInd + (CutOff/TimeStep)#CutOff time after the shallow temp peak as a possible end point
+  if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, CutOff time, or end of 
+    EndInd <- EndInd.1                              #the data set happens first then set that as the EndInd
+    print("EndInd (end of the data used for fitting) was set when the shallow sensor began to heat again after the peak")
+  } else if (EndInd.2 < EndInd.1 & EndInd.2 < NumRows) {   
+    EndInd <- EndInd.2
+    print("EndInd (end of the data used for fitting) was set by the specified CutOff time after the shallow temperature peak")
+  } else {
+    EndInd <- nrow(input)
+    print("EndInd (end of the data used for fitting) was set as the end of the input data set")
+  }
+}
+```
+  
+**Clip the data based on Start Index**  
+This section clips the data set to begin at StartInd. Then it resets TimeCounter to start at 0 (as opposed to the StartInd value)  
+```{r}
+if (Override.Clip == F) {
+  input.clipped <- input[c(StartInd:EndInd),]  #subset original data to the ranged used for fitting
+  input.clipped$TimeCounter <- input.clipped$TimeCounter - (StartInd*TimeStep)  #restart the timecounter in subset
+  rownames(input.clipped) = seq(length=nrow(input.clipped)) #restart row names
+} else {
+  input.clipped <- input  #if no clipping, rename input so it matches the clipped data name for rest of the code
+}
+```
+
+
+### Fitting the Curves  
+**Fit an equation for each sensor**  
+This section creates a Results matrix for the equation parameters. It then finds the best fit equation for each sensor and adds the information to Results.  
+```{r}
+Results <- matrix(ncol = 6, dimnames = list(c(), c("RMSE", "Pearson","InitTemp", "MaxTemp", "TimeAtMax", "Shape")))    
+timecounter <- input.clipped$TimeCounter  #time needs to be in this format to go into equation
+sensorlist <- list("Temp_S", "Temp_M", "Temp_D")  #Column names for temperature data
+for (c in names(input.clipped)) {   #names() pulls up all the column names
+  if (c %in% sensorlist){     #only acts on the Temp columns
+    InitTemp.fit <- input.clipped[1,c]  #sets parameter starting values for nls
+    MaxTemp.fit <- max(input.clipped[[c]])
+    MaxInd.fit <- which.max(input.clipped[[c]])
+    TimeAtMax.fit <- input.clipped$TimeCounter[MaxInd.fit]
+    BFD.fit <- nls(input.clipped[[c]]~BFDEquation(timecounter, InitTemp.value, MaxTemp.value, TimeAtMax.value, Shape.value), start = list(InitTemp.value = InitTemp.fit, MaxTemp.value = MaxTemp.fit, TimeAtMax.value = TimeAtMax.fit, Shape.value = 0.1))  #call nls function
+    RMSE <- summary(BFD.fit)$sigma  #root mean square error
+    Parameters.fit <- summary(BFD.fit)$parameters[,1] #equation parameters
+    InitTemp.fit <- Parameters.fit[1]   #isolate parameter values
+    MaxTemp.fit <- Parameters.fit[2]
+    TimeAtMax.fit <- Parameters.fit[3]
+    ShapeConstant.fit <- Parameters.fit[4]
+    Temporary.fit <- BFDEquation(timecounter, InitTemp.fit, MaxTemp.fit, TimeAtMax.fit, ShapeConstant.fit) #Make temporary equation for calculating Pearson coefficient
+    Pearson <- cor.test(Temporary.fit, input.clipped[[c]], method = "pearson") #pearson correlation coefficient
+    Results <- rbind(Results, c(RMSE, Pearson$estimate, Parameters.fit)) #add to results
+    }
+}
+Results.df <- data.frame(na.omit(Results)) #data frame is easier to work with. remove first row of NAs (product of using rbind)
+```
+
+**Extract the equation parameters and make equations**  
+This section extracts the equation parameters and measures of fit (RMSE, Pearson) from Results to recreate the equation that fits each sensor  
+```{r}
+timecounter.res <- seq(from = 1, to = max(timecounter), by = Res) #time at interval set by Res parameter
+#Shallow
+InitTemp.S <- Results.df[1,3]
+MaxTemp.S <- Results.df[1,4]
+TimeAtMax.S <- Results.df[1,5]
+ShapeConstant.S <- Results.df[1,6]
+RMSE.S <- Results.df[1,1]
+Pearson.S <- Results.df[1,2]
+BFDEquation.S <- BFDEquation(timecounter.res, InitTemp.S, MaxTemp.S, TimeAtMax.S, ShapeConstant.S)
+#Middle
+InitTemp.M <- Results.df[2,3]
+MaxTemp.M <- Results.df[2,4]
+TimeAtMax.M <- Results.df[2,5]
+ShapeConstant.M <- Results.df[2,6]
+RMSE.M <- Results.df[2,1]
+Pearson.M <- Results.df[2,2]
+BFDEquation.M <- BFDEquation(timecounter.res, InitTemp.M, MaxTemp.M, TimeAtMax.M, ShapeConstant.M)
+#Deep
+InitTemp.D <- Results.df[3,3]
+MaxTemp.D <- Results.df[3,4]
+TimeAtMax.D <- Results.df[3,5]
+ShapeConstant.D <- Results.df[3,6]
+RMSE.D <- Results.df[3,1]
+Pearson.D <- Results.df[3,2]
+BFDEquation.D <- BFDEquation(timecounter.res, InitTemp.D, MaxTemp.D, TimeAtMax.D, ShapeConstant.D)
+```
+ 
+**Summary** 
+Makes table and give print and/or save options  
+```{r}
+#Make summary table from Results.df
+Results.df$Depth <- SensorDepths #add depth
+Results.df <- Results.df[,c("Depth", "InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")] #reorder
+summary.table <- c("", "Shallow", "Middle", "Deep", "Formula", "StartInd to real time conversion", "StartInd", "End of data set used")
+summary.table.df <- data.frame(summary.table)
+summary.table.df[2:4, 2:8] <- Results.df
+summary.table.df[1,] <- c("", "Depth", "InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")
+summary.table.df[,2] <- c("Depth", SensorDepths, "", "", "", "")
+summary.table.df[5,2:3] <- c("Temp = InitTemp + (MaxTemp - InitTemp)e^(-z)", "z = (log(time) - log(TimeAtMax))^2 / ShapeConstant")
+summary.table.df[7,2] <- as.character(input.clipped$Date.Time[1])
+summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", nrow(input.clipped)*TimeStep))
+colnames(summary.table.df) <- c("", "", "", "", "", "", "", "")
+summary.table.df <- rbind(c("Summary Table", "", "", "","", "", "", "") , summary.table.df)
+
+if (PrintOrSave == "save"){
+  setwd(save.directory) #must be re-stated in this code chunk for saving
+  write.xlsx(summary.table.df, paste0(save.name, "_table.xlsx"))
+  print(summary.table.df)
+} else if (PrintOrSave == "print"){
+  print(summary.table.df)
+} else { #PrintOrSave  is "choose"
+  Z <- T
+  while (Z == T) {
+    if (interactive()) {
+      selection <- readline(prompt = cat("Save or print summary table? \nType 'save.table' to save it to the working directory (excel, named:'InputFile'_table) \nType 'print.table' to only print it in Rstudio after this code chunk"))
+    }
+    if (selection == "save.table") {
+      setwd(save.directory) #must be re-stated in this code chunk for saving
+      write.xlsx(summary.table.df, paste0(save.name, "_table.xlsx"))
+      print(summary.table.df)
+      Z <- F
+    }else if (selection == "print.table") {
+      print(summary.table.df)
+      Z <- F
+    }else {print("Invalid entry. Try again")}
+  }
+}
+```
+
+Figures:  
+This section plots the equations by individual sensor with the original data and plots just the three equations together.  
+```{r, echo=FALSE}
+PlotThemeMulti <- theme(panel.background = element_rect(fill = "white"),
+                 panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+                 plot.title = element_text(colour = "black", face = "bold", size = rel(1.3)),
+                 axis.line = element_line(size = 1, colour = "black"),
+                 axis.text = element_text(colour = "black", size = rel(1))
+                 )
+#need to plot on same temporal resolution as input data
+BFDEquation.S.plot <- BFDEquation(timecounter, InitTemp.S, MaxTemp.S, TimeAtMax.S, ShapeConstant.S)
+BFDEquation.M.plot <- BFDEquation(timecounter, InitTemp.M, MaxTemp.M, TimeAtMax.M, ShapeConstant.M)
+BFDEquation.D.plot <- BFDEquation(timecounter, InitTemp.D, MaxTemp.D, TimeAtMax.D, ShapeConstant.D)
+#Plot Clipped Data
+A <- ggplot(input.clipped, aes(x = TimeCounter)) + 
+  geom_point(aes(y = Temp_S), color = "purple") +
+  geom_point(aes(y = Temp_M), color = "blue") +
+  geom_point(aes(y = Temp_D), color = "green") +
+  labs(y = NULL, x = NULL) +
+  PlotThemeMulti
+#Plot Shallow Sensor
+B <- ggplot(input.clipped, aes(x = TimeCounter)) +
+  geom_point(aes(y = Temp_S), color = "black") +
+  geom_line(aes(y = BFDEquation.S.plot), color = "purple", size = 1) +
+  labs(y = NULL, x = NULL) + 
+  PlotThemeMulti
+#Plot Middle Sensor
+C <- ggplot(input.clipped, aes(x = TimeCounter)) +
+  geom_point(aes(y = Temp_M), color = "black") +
+  geom_line(aes(y = BFDEquation.M.plot), color = "blue", size = 1) +
+  labs(y = NULL, x = NULL) +
+  PlotThemeMulti
+#Plot Deep Sensor
+D <- ggplot(input.clipped, aes(x = TimeCounter)) +
+  geom_point(aes(y = Temp_D), color = "black") +
+  geom_line(aes(y = BFDEquation.D.plot), color = "green", size = 1) +
+  labs(y = NULL, x = NULL) +
+  PlotThemeMulti
+Figure <- ggarrange(A,B,C,D, labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2)
+Figure_an <- annotate_figure(Figure, bottom = text_grob(paste0("Time (min) since StartInd \nA. Clipped Data, B. Shallow Sensor (RMSE: ", round(RMSE.S, digits = 3), ", Pearson: ", round(Pearson.S, digits = 3), "), \nC. Middle Sensor (RMSE: ", round(RMSE.M, digits = 3), ", Pearson: ", round(Pearson.M, digits = 3), "), D. Deep Sensor (RMSE: ", round(RMSE.D, digits = 3), ", Pearson: ", round(Pearson.D, digits = 3), ")")), left = text_grob("Temperature (C)", rot = 90))
+
+All3 <- ggplot(input.clipped, aes(x = TimeCounter)) +
+  geom_line(aes(y = BFDEquation.S.plot), color = "purple", size = 1) +
+  geom_line(aes(y = BFDEquation.M.plot), color = "blue", size = 1) +
+  geom_line(aes(y = BFDEquation.D.plot), color = "green", size = 1) +
+  ggtitle("All three equations") +
+  labs(y="Temperature (C)", x = "Time (min) since StartInd") + 
+  PlotTheme +
+  annotate("text", x = (max(timecounter)-(max(timecounter)/10)), y = MaxTemp.S, label = paste0("\n\nShallow - Purple \nMiddle - Blue \nDeep - Green"), hjust = 1)
+```
+This section gives options for what plots to save and/or print  
+```{r}
+plotlist <- list(Figure_an, All3)
+
+if (PrintOrSave == "print"){
+  for (f in plotlist) {
+    print(f)
+  }
+} else if (PrintOrSave == "save"){
+  setwd(save.directory)  #must be restated in this code chunk for saving
+  g <- 1
+  for (f in plotlist) {
+    ggsave(paste0(save.name,"_plot", g, ".jpeg"), plot = f)
+    print(f)
+    g <- g+1
+  }
+} else { #PrintOrSave is "choose"
+  setwd(save.directory)  #must be restated in this code chunk for saving
+  Z <- T
+  Z1 <- T
+  Z2 <- T
+  while (Z == T) {
+    if (interactive()) {
+    selection <- readline(prompt = cat("Save or print plots? \nType 'save.all' to save both plots to the save directory (jpeg, named:'InputFile'_plot#) \nType 'save.choose' to choose which plots to save \nType 'print.all' to print both plots in Rstudio after this code chunk \nType 'print.choose' to choose which plots to print in Rstudio"))
+    }
+    if (selection == "save.all") {
+      g <- 1
+      for (f in plotlist) {
+        ggsave(paste0(save.name,"_plot", g, ".jpeg"), plot = f)
+        print(f)
+        g <- g+1
+      }
+      Z <- F
+    } else if (selection == "print.all") {
+      for (f in plotlist) {
+        print(f)
+      }
+      Z <- F
+    } else if (selection == "save.choose") {
+      for (f in 1:2) {
+        if (f == 1) {
+          while (Z1 == T) {
+            selection <- readline(prompt = cat("Do you want to to save plot1: break down of raw temp data and equations by depth? \n Type 'yes' or 'no'"))
+            if (selection == "yes") {
+              ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[[f]])
+              print(f)
+              Z1 <- F
+            } else if (selection == "no") {
+              Z1 <- F
+            } else {
+              print("Invalid entry. Try again")
+            } 
+          }
+        }else if (f == 2) {
+          while (Z2 == T) {
+            selection <- readline(prompt = cat("Do you want to to save plot2: all three equations (without raw data)? \n Type 'yes' or 'no'"))
+            if (selection == "yes") {
+              ggsave(paste0(save.name,"_plot", f, ".jpeg"), plot = plotlist[[f]])
+              print(f)
+              Z2 <- F
+            } else if (selection == "no") {
+              Z2 <- F
+            } else {
+              print("Invalid entry. Try again")
+            } 
+          }
+        }else {print("something went wrong with save.choose")}
+      }
+      Z <- F
+    } else if (selection == "print.choose") {
+      for (f in 1:2) {
+        if (f == 1) {
+          while (Z1 == T) {
+            selection <- readline(prompt = cat("Do you want to to print plot1: break down of raw temp data and equations by depth? \n Type 'yes' or 'no'"))
+            if (selection == "yes") {
+              print(plotlist[[f]])
+              Z1 <- F
+            } else if (selection == "no") {
+              Z1 <- F
+            } else {
+              print("Invalid entry. Try again")
+            } 
+          }
+        }else if (f == 2) {
+          while (Z2 == T) {
+            selection <- readline(prompt = cat("Do you want to to print plot2: all three equations (without raw data)? \n Type 'yes' or 'no'"))
+            if (selection == "yes") {
+              print(plotlist[[f]])
+              Z2 <- F
+            } else if (selection == "no") {
+              Z2 <- F
+            } else {
+              print("Invalid entry. Try again")
+            } 
+          }
+        }else {print("something went wrong with save.choose")}
+      }
+      Z <- F
+    } else {print("Invalid entry. Try again")}
+  }
+}
+```
+
+###End of fitting section  
+###Now moving into Regression Equations  
+**Regression equations allow for interpolating or extrapolating to other soil depths**
+```{r}
+if (Regression == F){
+  print("You chose not to calculate parameter regressions so the script is finished. All variables, objects, and equations are in the global environment. See summary.table.df for an overview and for specific parameter values")
+  stop()
+} else if (Regression == T){
+  print("Now moving on to calculate parameter regressions")
+} else {
+  print("Invalid option selected for Regression. The script is finished and did not calculate parameter regressions")
+  stop()
+}
+```
+  
+**Calculate regression for each parameter**    
+The regression equations are evaluated using pearson correlation coefficient (for non-linear) or r squared (for linear) and not p values due to the low sample sizes (only three sensors). The codes for extracting the p values is commented out and can be used instead of pearson r and r squared if you prefer. The regression equations are made into functions (called 'parameter'.reg) where the input is the depth of interest and the output is the parameter value for that depth. If the shape regression will not calculate, try reducing the TimeBuffer (top of script) or adjusting the starting values (in this code chunk, don't need to re-run script from the beginning. For example, try setting a to 10 (default is 15))
+```{r}
+#linear models - works well for Max Temp and Time at Max
+#MaxTemp
+MaxTemp.lm <- lm(log(Results.df$MaxTemp) ~ log(Results.df$Depth))   #linear model (log, log transformed)
+#MaxTemp.lm.p <- summary(MaxTemp.lm)$coefficients[2,4]    #p value
+MaxTemp.lm.r <- summary(MaxTemp.lm)$r.squared     #r squared
+MaxTemp.coeffs <- c(MaxTemp.lm$coefficients[1], MaxTemp.lm$coefficients[2]) #coefficients for regression
+MaxTemp.reg <- function(x, MaxTemp.coeffs) {return(exp(MaxTemp.coeffs[1] + (MaxTemp.coeffs[2])*log(x)))} #regression 
+if (MaxTemp.lm.r < 0.8) {
+  if (interactive()){
+      selection <- readline(prompt = cat("The r squared for max temp regression is", MaxTemp.lm.r, "\nThis might be a little lower than ideal but to proceed press enter. \nIf this is too low for you, recall the sample size is only three, but you can type 'no' then press enter to stop the script \n- if you stop, you will need to create a new equation to calculate this parameter for extrapolation/interpolation."))
+      if (selection == "no"){
+        stop("Regressions will not be calculated. Script is finished")
+      }
+  }
+}
+
+#TimeAtMax
+TimeAtMax.lm <- lm(Results.df$TimeAtMax ~ Results.df$Depth)   #linear model (no log transformations)
+#TimeAtMax.lm.p <- summary(TimeAtMax.lm)$coefficients[2,4]  #p value
+TimeAtMax.lm.r <- summary(TimeAtMax.lm)$r.squared   #r squared
+TimeAtMax.coeffs <- c(TimeAtMax.lm$coefficients[1], TimeAtMax.lm$coefficients[2]) #coefficients for regression
+TimeAtMax.reg <- function(x, TimeAtMax.coeffs) {return(TimeAtMax.coeffs[1] + TimeAtMax.coeffs[2]*x)} #regression
+if (MaxTemp.lm.r < 0.8) {
+  if (interactive()){
+    selection <- readline(prompt = cat("The r squared for time at max regression is", TimeAtMax.lm.r, "\nThis might be a little lower than ideal but to proceed press enter. \nIf this is too low for you, recall the sample size is only three, but you can type 'no' then press enter to stop the script \n- if you stop, you will need to create a new equation to calculate this parameter for extrapolation/interpolation."))
+    if (selection == "no"){
+      stop("Regressions will not be calculated. Script is finished")
+    }
+  }
+}
+
+#Not linear models - works well for Shape and InitTemp
+#Shape
+Shapesfornls <- Results.df$Shape  #change data format because cannot put Results.df$... into nls
+Shape.nls <- nls(Shapesfornls ~ Power.equation(SensorDepths, a, b), start = list(a = 10, b = 1)) 
+Shape.coeffs <- c(summary(Shape.nls)$parameters[1,1], summary(Shape.nls)$parameters[2,1]) #parameters from nls
+Shape.reg <- function(x, Shape.coeffs) {return(Shape.coeffs[1]*(x^-Shape.coeffs[2]))} #function
+predicted.shapes <- Shape.reg(SensorDepths, Shape.coeffs = Shape.coeffs)   #calculate values for pearson correlation
+Shape.pearson <- cor.test(Shapesfornls, predicted.shapes, method = "pearson")
+
+#InitTemp
+Initfornls <- Results.df$InitTemp  #change data format because cannot put Results.df$... into nls
+InitTemp.nls <- nls(Initfornls ~ Power.equation(SensorDepths, a, b), start = list(a = 30, b = 0.05))
+InitTemp.coeffs <- c(summary(InitTemp.nls)$parameters[1,1], summary(Shape.nls)$parameters[2,1]) #parameters from nls
+InitTemp.reg <- function(x, InitTemp.coeffs) {return(InitTemp.coeffs[1]*(x^-InitTemp.coeffs[2]))} #function
+predicted.inits <- InitTemp.reg(SensorDepths, InitTemp.coeffs = InitTemp.coeffs)  #calculate values for pearson correlation
+InitTemp.pearson <- cor.test(Initfornls, predicted.inits, method = "pearson")
+```
+
+**Check shallowest depth and shape pearson correlation**
+There is a tradeoff between being able to estimate shallower depths (shallower than the shallow sensor) and fitting the equations and parameter regressions. The BFD equation needs to have the time at the max temp for the depth of interest and at shallower depths, that time is earlier. Because the BFD equation takes the natural log of that time, the time cannot be less than 1 or it will start to underestimate the max temp reached. What can happen in some cases is the time at max temp can be less than 1 or even negative (before StartInd) when extrapolating to shallow depths because the temp peak occurs earlier in time than at deeper depths. To get around this, all you have to do is set StartInd earlier (see TimeBuffer) but if you set it too early the shape parameter becomes harder to estimate - lower pearson correlation coefficient. Other measures of fit and parameter regressions can be negatively affected too, but it is by far the most noticable with shape so if shape is ok, everything else should be too. It is reccomended that if the shallowest depth is shallower than you need, you should decrease the TimeBuffer to further improve the fits but if the fits are strong enough already that is unneccessary. If TimeBuffer is really too long, the shape regression will not calculate. This code chunk runs through a few options for how to deal with this tradeoff depending on what you plan to do with the regressions
+```{r}
+Shallowest <- (1-TimeAtMax.coeffs[1])/TimeAtMax.coeffs[2] #calculates depth when TimeAtMax is 1 - shallowest that can be extrapolated
+#if shallowest depth is negative (above ground) or 0
+Z <- T
+while (Z == T){
+  if (Shallowest <= 0){
+    if (interactive()){
+      selection <- readline(prompt = cat("The shallowest you can extrapolate was set to 0.001 cm because it was calculated at", Shallowest, "but this at or above the soil surface. \nTheoretically, values at or above the surface don't makes sense in this frame work and mathematically, you cannot have a depth less than or equal to 0 in the BFD equation \nYou can probably reduce TimeBuffer a bit to improve fit (shown next) without losing any ability to extrapolate to all shallow depths \nType 'yes' and press enter to continue"))
+      Shallowest <- 0.001
+      if (selection == "yes"){
+        print("continue with shallowest depth at 0.001")
+        Z <- F
+      }else {
+        print("Invalid entry. Try again")
+      }
+    }
+  }else {Z <- F}
+}
+Z <- T
+while (Z == T){
+  if (interactive()){
+    selection <- readline(prompt = cat("The shallowest depth you can extrapolate to is:", Shallowest, "cm below the surface \nPearson correlation for the shape parameter regression is", Shape.pearson$estimate, "\nIf this is adequate for your applications, type 'yes' and hit enter to continue. \nIf this does not work for you, you have two options: \n-To improve fit, decrease TimeBuffer \n-To be able to extrapolate shallower, increase TimeBuffer \nTo change the TimeBuffer, type 'no' and press enter to stop the script then go adjust the TimeBuffer as needed and re-run the script from the beginning \n*See current code chunk for more detailed explaination of the TimeBuffer tradeoffs and why the shape parameter regression is used as the measure of fit*"))
+    if (selection == "yes"){
+      print(paste("The shallowest depth you can extrapolate is", Shallowest))
+      Z <- F
+    }else if (selection == "no"){
+      stop("Go change the TimeBuffer and re-run the script")
+    }else {
+      print("Invalid entry. Try again")
+    }
+  }
+}
+```
+
+**InitTemp options** 
+This parameter is the most challenging to model because the relationship between the temperatures at different depths depends on the time of day. If the regression in the preceding code chunk does not have a good correlation coefficient (0.8 or greater), the code below gives the options to replace the Intit Temp regression function with a fuction that A. takes the mean of the three measured depths and uses that one value as the initial temperature for all depths or B. uses the initial temperature from the sensor closest to the input value (in the case of a tie, it goes with the shallower of the two measurments).  
+```{r}
+Z <- T
+InitTemp.byDepth <- c(InitTemp.S, InitTemp.M, InitTemp.D)
+while (Z == T){
+  if (interactive()) {
+    if (abs(InitTemp.pearson$estimate) >= 0.9) { #if pearson is good, exit loop
+      Z <- F
+    }else if (InitTemp.pearson$estimate < 0.9 & InitTemp.pearson$estimate > 0) {#if pearson is not good, get user input
+      selection <- readline(prompt = cat("The pearson correlation for InitiTemp is", InitTemp.pearson$estimate, "\nThis is lower than ideal but there are a few options (see code chunk description for more details). \nType 'yes' then press enter to continue using the regression equation as is. \nType 'mean.value' then press enter to use the mean value of the three measured initial temperatures for all depths. \nType 'closest.sensor' then press enter to use the value from the closest sensor *reccomended over mean value*"))
+      if (selection == "mean.value") { #define function for mean inittemp
+        InitTemp.reg = function(x, InitTemp.byDepth) {return(mean(InitTemp.byDepth))} #avg the 3 measured Init values
+        Z <- F
+      }else if (selection == "closest.sensor") { #define function for using closest sensor
+        InitTemp.reg = function(x, InitTemp.byDepth, SensorDepths) {
+          if (x <= (SensorDepths[1] + ((SensorDepths[2]-SensorDepths[1])/2))){#if x  closest to  shallow sensor
+          return(InitTemp.byDepth[1]) #shallow sensor InitTemp
+          } else if (x > (SensorDepths[1] + ((SensorDepths[2]-SensorDepths[1])/2)) & x<= (SensorDepths[2] + ((SensorDepths[3]-SensorDepths[2])/2))){ #if x closest to middle sensor
+            return(InitTemp.byDepth[2]) #middle sensor InitTemp
+          }else if (x > (SensorDepths[2] + ((SensorDepths[3]-SensorDepths[2])/2))){ #if x closest to deep sensor
+            return(InitTemp.byDepth[3]) #deep sensor InitTemp
+          } else {
+            print("error in InitTemp Regression option 'closest.sensor'")
+          }
+        }
+        Z <- F
+      }else if (selection == "yes") { #keep original function if user is ok with pearson
+        Z <- F
+      }else {
+        print("Invalid entry. Try again")
+      }
+    }else if (InitTemp.pearson$estimate <= 0){ #if pearson is 0 or negative
+      selection <- readline(prompt = cat("The pearson correlation for InitiTemp is", InitTemp.pearson$estimate, "\nNegative (or 0) correlation here is almost certain to lead to problems in your regression equations \nType 'yes' then press enter to continue using the regression equation as it is anyway **NOT reccomended**. \nType 'mean.value' then press enter to use the mean value of the three measured initial temperatures for all depths. \nType 'closest.sensor' then press enter to use the value from the closest sensor *reccomended over mean value*"))
+      if (selection == "mean.value") { #define function for mean inittemp
+        InitTemp.reg = function(x, InitTemp.byDepth) {return(mean(InitTemp.byDepth))} #avg the 3 measured Init values
+        Z <- F
+      }else if (selection == "closest.sensor") { #define function for using closest sensor
+        InitTemp.reg = function(x, InitTemp.byDepth, SensorDepths) {
+          if (x <= (SensorDepths[1] + ((SensorDepths[2]-SensorDepths[1])/2))){#if x  closest to  shallow sensor
+          return(InitTemp.byDepth[1]) #shallow sensor InitTemp
+          } else if (x > (SensorDepths[1] + ((SensorDepths[2]-SensorDepths[1])/2)) & x<= (SensorDepths[2] + ((SensorDepths[3]-SensorDepths[2])/2))){ #if x closest to middle sensor
+            return(InitTemp.byDepth[2]) #middle sensor InitTemp
+          }else if (x > (SensorDepths[2] + ((SensorDepths[3]-SensorDepths[2])/2))){ #if x closest to deep sensor
+            return(InitTemp.byDepth[3]) #deep sensor InitTemp
+          } else {
+            print("error in InitTemp Regression option 'closest.sensor'")
+          }
+        }
+        Z <- F
+      }else if (selection == "yes") { #keep original function if user is ok with pearson
+        Z <- F
+      }else {
+        print("Invalid entry. Try again")
+      }
+    }else {
+      print("Error in InitTemp pearson r")
+    }
+  }
+}
+```
+make summary table of regression fits and equations
+```{r}
+EndTime <- input.clipped$TimeCounter[nrow(input.clipped)]
+StartTime <- as.character(input.clipped$Date.Time[1])  #just a character string, not a formal date formatted object b/c input mght vary
+RegressionSummary <- c("MaxTemp", "InitTemp", "TimeAtMax", "Shape", "Shallowest", "StartTime ", "EndTime")
+RegressionSummary.df <- as.data.frame(RegressionSummary)
+RegressionSummary.df[,2] <- c("r squared", "pearson r", "r squared", "pearson r", paste(Shallowest, "cm"), StartTime, as.character(input.clipped$Date.Time[nrow(input.clipped)]))
+RegressionSummary.df[,3] <- c(MaxTemp.lm.r, "", TimeAtMax.lm.r, Shape.pearson$estimate, "cannot extrapolate shallower", "beginning of model time range", "end of model time range")
+if (selection == "yes"){ #go through all options of inittemp
+  RegressionSummary.df[2,2:3] <- c("pearson r", InitTemp.pearson$estimate)
+}else if (selection == "mean.value") {
+  RegressionSummary.df[2,2:3] <- c("NA", "using mean temp")
+}else if (selection == "closest.sensor") {
+  RegressionSummary.df[2,2:3] <- c("NA", "using closest sensor temp")
+}else {
+  RegressionSummary.df[2,2:3] <- c("NA", "something odd with InitTemp?")
+}
+RegressionSummary.df[1,4] <- paste0("e^(",round(MaxTemp.coeffs[1], digits = 4),"+(",round(MaxTemp.coeffs[2], digits = 4),"*log(x)))")
+if (selection == "yes"){ #go through all possible options of inittemp
+  RegressionSummary.df[2,4] <- paste0(round(InitTemp.coeffs[1], digits = 4),"*(x^-",round(InitTemp.coeffs[2], digits = 4),")")
+}else if (selection == "mean.value") {
+  RegressionSummary.df[2,4] <- "mean of the three measured InitTemps"
+}else if (selection == "closest.sensor") {
+  RegressionSummary.df[2,4] <- "closest sensor InitTemp"
+}else {
+  RegressionSummary.df[2,4] <- c("NA", "something odd with InitTemp?")
+}
+RegressionSummary.df[3,4] <- paste0(round(TimeAtMax.coeffs[1], digits = 4), "+", round(TimeAtMax.coeffs[2], digits = 4),"*x")
+RegressionSummary.df[4,4] <- paste0(round(Shape.coeffs[1], digits = 4),"*(x^-",round(Shape.coeffs[2], digits = 4),")")
+RegressionSummary.df[7,4] <- paste("FullTime: ", EndTime, "min") 
+RegressionSummary.df <- rbind(c("Parameter", "Statistic", "Value", "Equation"), RegressionSummary.df)
+colnames(RegressionSummary.df) <- c("", "", "", "")
+RegressionSummary.df2 <- rbind(c("Regression Table", "", "", "") , RegressionSummary.df)
+```
+
+*Saving the regressions to a new file*  
+This section saves or prints the regression summary table and the Rdata file with everything needed to run further applications of the model. Saving is recommended for the Rdata file in particular. That is what allows the regressions to easily be called into later files and workflows. The file will be called 'input file name'_regressions.Rdata
+```{r}
+setwd(save.directory)  #restate where to save for this code chunk
+if (PrintOrSave == "print"){
+  print(RegressionSummary.df)
+} else if (PrintOrSave == "save"){
+  print(RegressionSummary.df)
+  write.xlsx(RegressionSummary.df, paste0(save.name, "_regtable.xlsx"))
+} else { #PrintOrSave is "choose"
+  Z <- T
+  if (interactive()) {
+    while (Z == T) {
+      selection <- readline(prompt = cat("Do you want to save and print or just print the fitting summary for the parameter regressions? \nType 'print.table' to print the table in R \nType 'save.table' to save the table ('file name'_regtable.xlsx') and print in R"))
+      if (selection == "print.table") {
+        print(RegressionSummary.df)
+        Z <- F
+      }else if (selection == "save.table") {
+        print(RegressionSummary.df)
+        write.xlsx(RegressionSummary.df, paste0(save.name, "_regtable.xlsx"))
+        Z <- F
+      }else {
+        print("Invalid Entry. Try again")
+      }
+    }
+  }
+}
+
+if (PrintOrSave == "print"){
+  print("The script is finished. The regression functions/variables/etc were not saved to a file but they are currently in your R global environment.")
+} else if (PrintOrSave == "save"){
+  reg.file <- paste0(save.name, "_regressions.Rdata") #new file name
+  save(list = c("BFDEquation", "MaxTemp.reg", "MaxTemp.coeffs", "TimeAtMax.reg", "TimeAtMax.coeffs", "Shape.reg", "Shape.coeffs", "InitTemp.reg", "InitTemp.byDepth", "SensorDepths", "InitTemp.coeffs", "Shallowest", "EndTime", "RegressionSummary.df", "StartTime"), file = reg.file) #objects and functions to save
+  print("This script is finished. The regressions and plots or tables are all saved in your save directory")
+} else { #PrintOrSave is "choose"
+  if (interactive()){
+    Z <- T
+    while (Z == T){
+      selection <- readline(prompt = cat("Do you want to save the regression functions to a new file ('file name'_regressions.Rdata)? This is reccomended to make further work with the model easier. \nType 'yes' or 'no' and press enter"))
+      if (selection == "yes") {
+        reg.file <- paste0(save.name, "_regressions.Rdata") #new file name
+        save(list = c("BFDEquation", "MaxTemp.reg", "MaxTemp.coeffs", "TimeAtMax.reg", "TimeAtMax.coeffs", "Shape.reg", "Shape.coeffs", "InitTemp.reg", "InitTemp.byDepth", "InitTemp.coeffs", "SensorDepths", "Shallowest", "EndTime", "StartTime", "RegressionSummary.df"), file = reg.file) #objects and functions to save
+        print("This script is finished. The regressions and any plots or tables you chose to save are all in your save directory")
+        Z <- F
+      }else if (selection == "no"){
+        print("This script is finished. Any plots or tables you chose to save can be found in your save directory and the regression functions are in your R global environment but not saved elsewhere")
+        Z <- F
+      }else {
+        print("Invalid entry. Try again")
+      }
+    }
+  }
+}
+```
+
+
+
+
+
+
+
