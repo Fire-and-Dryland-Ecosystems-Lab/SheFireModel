@@ -9,9 +9,9 @@ SurvivalPercent(x, deltaS, deltaH, res = 1, temp = 48, model)
 \arguments{
 \item{x}{The soil depth in cm.}
 
-\item{deltaS}{The change in entropy (units of J*mol-1*K-1) for the organism/tissue/etc of interest.}
+\item{deltaS}{The activation entropy (units of J*mol-1*K-1) for the organism/tissue/etc of interest.}
 
-\item{deltaH}{The change in enthalpy (units of J*mol-1) for the organism/tissue/etc of interest.}
+\item{deltaH}{The activation enthalpy (units of J*mol-1) for the organism/tissue/etc of interest.}
 
 \item{res}{The temporal resolution (in min) at which to calculate the temperatures. Default is one minute.}
 
