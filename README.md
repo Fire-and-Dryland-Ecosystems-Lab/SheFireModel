@@ -16,15 +16,14 @@ If you contribute or improve an application function:
      put your name and contact info on the new/updated function help/documentation page
      make the help page actually helpful for folks
      function names are capitalized, parameters are not
-     parameter names should be consistent with other functions in the package (for example: x is always a depth, t is always time)
-     update the model version number by 0.01 (if it was 1.02, now it is 1.03)
+     parameter names should be consistent with other functions in the package (for example: x is always depth, t is always time)
      
 If you contribute to the model development (SheFire function):
 
      make sure it still works with WlkrPlot4NE.csv example data set
-     add your name to the authors list in the package description 
      adjust the help/documentation page as needed
      if you add parameters, set default values such that function calls people wrote in any scripts with the earlier model version will still work
-     model time starts at 0.00001 minutes
+     keep in mind: model time starts at 0.00001 minutes but equation fitting starts at 0
      please! consider updating the annotated .Rmd scripts to reflect your changes
-     update model version number by 1 for major changes, or 0.1 for any non-major changes (if it is a minor enough change that you would consider 0.01, is it worth changing?)
+
+To have your contribution added to the model, create a pull request to the "development" branch and inculde a summary of what you added or changed as well as the relevant results using the WlkrPlot4NE.csv data set (either the function output or the model object from SheFire). We will periodically update "main" with the changes pulled to "development"
