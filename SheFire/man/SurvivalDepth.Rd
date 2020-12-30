@@ -17,9 +17,9 @@ SurvivalDepth(
 \arguments{
 \item{survivalValue}{The survival threshold of interest in decimal form (60 percent survival -> 0.6).}
 
-\item{deltaS}{The change in entropy (units of J*mol-1*K-1) for the organism/tissue/etc of interest.}
+\item{deltaS}{The activation entropy (units of J*mol-1*K-1) for the organism/tissue/etc of interest.}
 
-\item{deltaH}{The change in enthalpy (units of J*mol-1) for the organism/tissue/etc of interest.}
+\item{deltaH}{The activation enthalpy (units of J*mol-1) for the organism/tissue/etc of interest.}
 
 \item{temp}{The threshold temperature when survival will begin to be impacted. Default is 48 based on Miesel et al (2020) and personal communication with Matthew Dickinson.}
 
