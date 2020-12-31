@@ -529,7 +529,7 @@ Shape.pearson <- cor.test(Shapesfornls, predicted.shapes, method = "pearson")
 #InitTemp
 Initfornls <- Results.df$InitTemp  #change data format because cannot put Results.df$... into nls
 InitTemp.nls <- nls(Initfornls ~ Power.equation(SensorDepths, a, b), start = list(a = 30, b = 0.05))
-InitTemp.coeffs <- c(summary(InitTemp.nls)$parameters[1,1], summary(Shape.nls)$parameters[2,1]) #parameters from nls
+InitTemp.coeffs <- c(summary(InitTemp.nls)$parameters[1,1], summary(InitTemp.nls)$parameters[2,1]) #parameters from nls
 InitTemp.reg <- function(x, InitTemp.coeffs) {return(InitTemp.coeffs[1]*(x^-InitTemp.coeffs[2]))} #function
 predicted.inits <- InitTemp.reg(SensorDepths, InitTemp.coeffs = InitTemp.coeffs)  #calculate values for pearson correlation
 InitTemp.pearson <- cor.test(Initfornls, predicted.inits, method = "pearson")
@@ -578,7 +578,7 @@ Z <- T
 InitTemp.byDepth <- c(InitTemp.S, InitTemp.M, InitTemp.D)
 while (Z == T){
   if (interactive()) {
-    if (abs(InitTemp.pearson$estimate) >= 0.9) { #if pearson is good, exit loop
+    if (InitTemp.pearson$estimate >= 0.9) { #if pearson is good, exit loop
       Z <- F
     }else if (InitTemp.pearson$estimate < 0.9 & InitTemp.pearson$estimate > 0) {#if pearson is not good, get user input
       selection <- readline(prompt = cat("The pearson correlation for InitiTemp is", InitTemp.pearson$estimate, "\nThis is lower than ideal but there are a few options (see code chunk description for more details). \nType 'yes' then press enter to continue using the regression equation as is. \nType 'mean.value' then press enter to use the mean value of the three measured initial temperatures for all depths. \nType 'closest.sensor' then press enter to use the value from the closest sensor *reccomended over mean value*"))
@@ -670,10 +670,10 @@ RegressionSummary.df2 <- rbind(c("Regression Table", "", "", "") , RegressionSum
 *Saving the regressions to a new file*  
 This section saves or prints the regression summary table and the Rdata file with everything needed to run further applications of the model. Saving is recommended for the Rdata file in particular. That is what allows the regressions to easily be called into later files and work flows. The file will be called 'input file name'_regressions.Rdata
 ```{r}
-setwd(save.directory)  #restate where to save for this code chunk
 if (PrintOrSave == "print"){
   print(RegressionSummary.df)
 } else if (PrintOrSave == "save"){
+  setwd(save.directory)  #restate where to save for this code chunk
   print(RegressionSummary.df)
   write.xlsx(RegressionSummary.df, paste0(save.name, "_regtable.xlsx"))
 } else { #PrintOrSave is "choose"
@@ -685,6 +685,7 @@ if (PrintOrSave == "print"){
         print(RegressionSummary.df)
         Z <- F
       }else if (selection == "save.table") {
+        setwd(save.directory)  #restate where to save for this code chunk
         print(RegressionSummary.df)
         write.xlsx(RegressionSummary.df, paste0(save.name, "_regtable.xlsx"))
         Z <- F

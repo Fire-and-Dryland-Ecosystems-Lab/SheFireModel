@@ -311,7 +311,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
   Shape.pearson <- cor.test(Shapesfornls, predicted.shapes, method = "pearson")
   Initfornls <- Results.df$InitTemp  #change data format because cannot put Results.df$... into nls
   InitTemp.nls <- nls(Initfornls ~ Power.equation(sensorDepths, a, b), start = list(a = 30, b = 0.05))
-  InitTemp.coeffs <- c(summary(InitTemp.nls)$parameters[1,1], summary(Shape.nls)$parameters[2,1]) #parameters from nls
+  InitTemp.coeffs <- c(summary(InitTemp.nls)$parameters[1,1], summary(InitTemp.nls)$parameters[2,1]) #parameters from nls
   InitTemp.byDepth <- c(InitTemp.S, InitTemp.M, InitTemp.D)
   InitTemp.reg <- function(x, InitTemp.coeffs, InitTemp.byDepth, SensorDepths) {return(InitTemp.coeffs[1]*(x^-InitTemp.coeffs[2]))} #function
   predicted.inits <- InitTemp.reg(sensorDepths, InitTemp.coeffs = InitTemp.coeffs)  #calculate values for pearson correlation
