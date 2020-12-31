@@ -4,14 +4,12 @@ author: "MaryKBrady"
 model version: 1.0
 ---
 
-###The anticipated primary use of this script is go through the SheFire function in the SheFire R package in detail. This is the function that builds the soil heating model so this script is a detailed explanation of how the model is constructed. It has some information about fitting BFD equations to the sensor data but a more thurough expaination of that process can be found in Fitting_BFD_Curve.Rmd file
+###The anticipated primary use of this script is go through the SheFire function in the SheFire R package in detail. This is the function that builds the soil heating model so this script is a detailed explanation of how the model is constructed. It has some information about fitting BFD equations to the sensor data but a more thorough explanation of that process can be found in Fitting_BFD_Curve.Rmd file, this file focuses on processing three co-located sensors at different depths and expanding the model with the parameter regression equations
 
 If you want example data that will run correctly, go to https://github.com/Fire-and-Dryland-Ecosystems-Lab/SheFireModel, then go to the SheFire folder, then the inst folder, then the external folder, then download or otherwise copy the WlkrPlot4NE.csv file. It is data collected by the US Forest Service FBAT on the Walker Fire, Plumas NF, CA Sept. 2019: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 
-### This script deals with one set of sensors at a time (3 sensors)    
-*Note: For more extended comments/explanations, please see "Fitting_BFD_Curve.Rmd". Comments here will focus on changes made to that basic code for processing three co-located sensors at different depths and expanding model with the parameter regression equations*  
 
-This script takes a csv file with three temperature traces at different depths as input and calculates the equations for each depth with the option to also calculate regressions that allow interpolation and extrapolation to other soil depths. The script outputs a summary table containing the equations and time information as well as a few plots to visualize the fits for the three measured depths. You will prompted to choose to save and/or print (in Rstudio) the table and plots. For the regressions, you will be asked if you would like to save an Rdata file containing the relevant functions and equations. That file can then be loaded into other R files (using model <- load('file.Rdata')) for your specific applications of the regressions (see SheFire R package for examples and a few useful application functions. The Rdata file is equivalent to the function output from SheFire in the SheFire package.) See below for options to save all output or print all output.
+This script takes a csv file with three temperature traces at different depths as input and calculates the equations for each depth with the option to also calculate regressions that allow interpolation and extrapolation to other soil depths. The script outputs a summary table containing the equations and time information as well as a few plots to visualize the fits for the three measured depths. You will prompted to choose to save and/or print (to Rstudio) the table and plots. For the regressions, you will be asked if you would like to save an Rdata file containing the relevant functions and equations. That file can then be loaded into other R files (using model <- load('file.Rdata')) for your specific applications of the regressions. See SheFire R package for examples and a few useful application functions as the Rdata file is equivalent to the function output from SheFire in the SheFire package. See below for options to save all output or print all output.
 
 The script also prints out a few messages after certain code chunks while it is running. These can be useful for any debugging or data reformatting that may be necessary with your files.
 
@@ -140,7 +138,7 @@ ggplot(input, aes(x = TimeCounter)) +
 ```
 
 **Find Start Index based on shallow sensor**  
-Start Index (StartInd) is based on the shallow sensor because it will heat up first. StartInd will be the same for all three sensors to make comparisons between depths straightforward and keep later regressions (for exprapolating and interpolating unmeasured soil depths) consistent.   
+Start Index (StartInd) is based on the shallow sensor because it will heat up first. StartInd will be the same for all three sensors to make comparisons between depths straightforward and keep later regressions (for extrapolating and interpolating unmeasured soil depths) consistent.   
 **Rate of Temp Change (C/min)**  
 ```{r}
 Data_S <- input[,3] #pull out shallow sensor data
@@ -486,7 +484,7 @@ if (Regression == F){
 ```
   
 **Calculate regression for each parameter**    
-The regression equations are evaluated using pearson correlation coefficient (for non-linear) or r squared (for linear) and not p values due to the low sample sizes (only three sensors). The codes for extracting the p values is commented out and can be used instead of pearson r and r squared if you prefer. The regression equations are made into functions (called 'parameter'.reg) where the input is the depth of interest and the output is the parameter value for that depth. If the shape regression will not calculate, try reducing the TimeBuffer (top of script) or adjusting the starting values (in this code chunk, don't need to re-run script from the beginning. For example, try setting a to 10 (default is 15))
+The regression equations are evaluated using pearson correlation coefficient (for non-linear) or r squared (for linear) and not p values due to the low sample sizes (only three sensors). The codes for extracting the p values is commented out and can be used instead of pearson r and r squared if you prefer. The regression equations are made into functions (called 'parameter'.reg) where the input is the depth of interest and the output is the parameter value for that depth. If the shape regression will not calculate, try reducing the TimeBuffer (top of script) or adjusting the starting values (in this code chunk, don't need to re-run script from the beginning. For example, try setting a to 15 (default is 10))
 ```{r}
 #linear models - works well for Max Temp and Time at Max
 #MaxTemp
@@ -538,7 +536,7 @@ InitTemp.pearson <- cor.test(Initfornls, predicted.inits, method = "pearson")
 ```
 
 **Check shallowest depth and shape pearson correlation**
-There is a tradeoff between being able to estimate shallower depths (shallower than the shallow sensor) and fitting the equations and parameter regressions. The BFD equation needs to have the time at the max temp for the depth of interest and at shallower depths, that time is earlier. Because the BFD equation takes the natural log of that time, the time cannot be less than 1 or it will start to underestimate the max temp reached. What can happen in some cases is the time at max temp can be less than 1 or even negative (before StartInd) when extrapolating to shallow depths because the temp peak occurs earlier in time than at deeper depths. To get around this, all you have to do is set StartInd earlier (see TimeBuffer) but if you set it too early the shape parameter becomes harder to estimate - lower pearson correlation coefficient. Other measures of fit and parameter regressions can be negatively affected too, but it is by far the most noticable with shape so if shape is ok, everything else should be too. It is reccomended that if the shallowest depth is shallower than you need, you should decrease the TimeBuffer to further improve the fits but if the fits are strong enough already that is unneccessary. If TimeBuffer is really too long, the shape regression will not calculate. This code chunk runs through a few options for how to deal with this tradeoff depending on what you plan to do with the regressions
+There is a tradeoff between being able to estimate shallower depths (shallower than the shallow sensor) and fitting the equations and parameter regressions. The BFD equation needs to have the time at the max temp for the depth of interest and at shallower depths, that time is earlier. Because the BFD equation takes the natural log of that time, the time cannot be less than 1 or it will start to underestimate the max temp reached. What can happen in some cases is the time at max temp can be less than 1 or even negative (before StartInd) when extrapolating to shallow depths because the temp peak occurs earlier in time than at deeper depths. To get around this, all you have to do is set StartInd earlier (see TimeBuffer) but if you set it too early the shape parameter becomes harder to estimate - lower pearson correlation coefficient. Other measures of fit and parameter regressions can be negatively affected too, but it is by far the most noticeable with shape so if shape is ok, everything else should be too. It is recommended that if the shallowest depth is shallower than you need, you should decrease the TimeBuffer to further improve the fits but if the fits are strong enough already that is unnecessary. If TimeBuffer is really too long, the shape regression will not calculate. This code chunk runs through a few options for how to deal with this tradeoff depending on what you plan to do with the regressions
 ```{r}
 Shallowest <- (1-TimeAtMax.coeffs[1])/TimeAtMax.coeffs[2] #calculates depth when TimeAtMax is 1 - shallowest that can be extrapolated
 #if shallowest depth is negative (above ground) or 0
@@ -574,7 +572,7 @@ while (Z == T){
 ```
 
 **InitTemp options** 
-This parameter is the most challenging to model because the relationship between the temperatures at different depths depends on the time of day. If the regression in the preceding code chunk does not have a good correlation coefficient (0.8 or greater), the code below gives the options to replace the Intit Temp regression function with a fuction that A. takes the mean of the three measured depths and uses that one value as the initial temperature for all depths or B. uses the initial temperature from the sensor closest to the input value (in the case of a tie, it goes with the shallower of the two measurments).  
+This parameter is the most challenging to model because the relationship between the temperatures at different depths depends on the time of day. If the regression in the preceding code chunk does not have a good correlation coefficient (0.8 or greater), the code below gives the options to replace the Intit Temp regression function with a function that A. takes the mean of the three measured depths and uses that one value as the initial temperature for all depths or B. uses the initial temperature from the sensor closest to the input value (in the case of a tie, it goes with the shallower of the two measurements).  
 ```{r}
 Z <- T
 InitTemp.byDepth <- c(InitTemp.S, InitTemp.M, InitTemp.D)
@@ -637,7 +635,7 @@ while (Z == T){
 make summary table of regression fits and equations
 ```{r}
 EndTime <- input.clipped$TimeCounter[nrow(input.clipped)]
-StartTime <- as.character(input.clipped$Date.Time[1])  #just a character string, not a formal date formatted object b/c input mght vary
+StartTime <- as.character(input.clipped$Date.Time[1])  #just a character string, not a formal date formatted object b/c input might vary
 RegressionSummary <- c("MaxTemp", "InitTemp", "TimeAtMax", "Shape", "Shallowest", "StartTime ", "EndTime")
 RegressionSummary.df <- as.data.frame(RegressionSummary)
 RegressionSummary.df[,2] <- c("r squared", "pearson r", "r squared", "pearson r", paste(Shallowest, "cm"), StartTime, as.character(input.clipped$Date.Time[nrow(input.clipped)]))
@@ -670,7 +668,7 @@ RegressionSummary.df2 <- rbind(c("Regression Table", "", "", "") , RegressionSum
 ```
 
 *Saving the regressions to a new file*  
-This section saves or prints the regression summary table and the Rdata file with everything needed to run further applications of the model. Saving is recommended for the Rdata file in particular. That is what allows the regressions to easily be called into later files and workflows. The file will be called 'input file name'_regressions.Rdata
+This section saves or prints the regression summary table and the Rdata file with everything needed to run further applications of the model. Saving is recommended for the Rdata file in particular. That is what allows the regressions to easily be called into later files and work flows. The file will be called 'input file name'_regressions.Rdata
 ```{r}
 setwd(save.directory)  #restate where to save for this code chunk
 if (PrintOrSave == "print"){
