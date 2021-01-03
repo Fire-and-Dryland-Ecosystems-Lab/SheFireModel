@@ -324,7 +324,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
   }else if (Shallowest > 0 & Shape.pearson$estimate >= corrThreshold){ #if shallowest ok and pearson ok
     print(paste("The shallowest depth the model can mathematically extrapolate to is", Shallowest, "cm. If you need a shallower depth, try increasing the timeBuffer. The model can become unreasonable at particularly shallow depths in some fires so the shalowest reasonable extrapolation may be a little deeper than that (plot shallowest depth temperature over time along side a deeper depth like 1 or 2 cm to visually assess reasonability if you need specific data at or near the shallowest depth)"))
   } else {#if shallowest ok but pearson not ok
-    stop(paste("Calculating regressions failed because the pearson correlation for Shape parameter was lower than the threshold with a value of:", Shape.pearson, ". Decreasing the timeBuffer should improve the fit. Or adjust the pearson correlation threshold parameter"))
+    stop(paste("Calculating regressions failed because the pearson correlation for Shape parameter was lower than the threshold with a value of:", Shape.pearson$estimate, ". Decreasing the timeBuffer should improve the fit. Or adjust the pearson correlation threshold parameter"))
   }
   #Check InitTemp pearson
   if(InitTemp.pearson$estimate < corrThreshold){ #if InitTemp pearson correlation is below threshold, use closest sensor for InitTemp
