@@ -341,7 +341,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     }
     ForTable <- "closest.sensor"
     print(paste("InitTemp pearson correlation was below the threshold with a value of:", InitTemp.pearson$estimate, "Therefore, the parameter regression will use the initial temperature from the nearest sensor as the initial temperature parameter instead of the calculated equation for InitTemp. The correlation threshold can be adjusted"))  
-  }
+  } else {(ForTable <- "This should not be printed")} #set ForTable if Not using closest.sensor
   #regression summary table
   if(printPlotsTables == T | savePlotsTables ==T){
     regressionSummary <- c("MaxTemp", "InitTemp", "TimeAtMax", "Shape", "Shallowest", "StartTime ", "EndTime")
