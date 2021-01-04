@@ -199,7 +199,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
   Pearson.D <- Results.df[3,2]
   BFDEquation.D <- BFDEquation(timecounter.res, InitTemp.D, MaxTemp.D, TimeAtMax.D, ShapeConstant.D)
   #Make summary table from Results.df 
-  if(printPlotsTables == T | savePlotsTables == T){
+  if(printPlotsTables == T | savePlotsTables == T | regression == F){
     Results.df <- Results.df[,c("Depth", "InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")] #reorder
     summary.table <- c("", "Shallow", "Middle", "Deep", "Formula", "StartInd to real time conversion", "StartInd", "End of data set used")
     summary.table.df <- data.frame(summary.table)
@@ -264,13 +264,13 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
       PlotTheme
   }
   #printing and saving
-  if(printPlotsTables == T & regression == F){  #print all plots and tables at the end if continuing to regressions
+  if(printPlotsTables == T & regression == F){  #print all plots and tables together at the end if continuing to regressions
     print(input_plot)
     print(Figure_an)
     print(All3)
     print(summary.table.df)
   }
-  if(savePlotsTables){
+  if(savePlotsTables == T){
     ggsave(paste0(saveName,"_input.jpeg"), plot = input_plot)
     ggsave(paste0(saveName, "_dataWithEqua.jpeg"), plot = Figure_an)
     ggsave(paste0(saveName, "_equations.jpeg"), plot = All3)
