@@ -283,7 +283,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
   #end function if not calculating regressions
   if(regression == F){
     half.list <- list("BFDEquation.S" = BFDEquation.S, "BFDEquation.M" = BFDEquation.M, "BFDEquation.D" = BFDEquation.D, "Time.Resolution" = res, "Summary.Data.Frame" = summary.table.df, "EndTime" = EndTime, "StartTime" = StartTime, "FullTime" = FullTime)
-    print("Not calculating regressions for full model, returning the three equations at 1 min time steps(BFDEquation.S - shallow sensor, .M - middle sensor, .D - deep sensor), Summary Table, StartTime, EndTime, and FullTime (length of time covered in minutes)")
+    print("Not calculating regressions for full model, returning the three equations for temperature over time at the set time resolution (BFDEquation.S - shallow sensor, .M - middle sensor, .D - deep sensor), Time.Resolution (in min), Summary Table, StartTime, EndTime, and FullTime (length of time covered in minutes)")
     return(half.list)
   }
   #calculate regressions for each parameter
