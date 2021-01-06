@@ -120,7 +120,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     }
   } 
   #Setting EndInd
-  if (Override.Clip == F) {
+  if (overrideClip == F) {
     MaxInd <- which.max(Data_S) #when is the temp peak
     postpeak <- TempRate[(which.max(Data_S)):NumRows] #rates of temp change after temp peak
     EndInd.1 <- NULL
@@ -133,7 +133,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     if (is.null(EndInd.1) ){ #if no heating post peak, set possible end point to end of data
       EndInd.1 <- NumRows
     }
-    EndInd.2 <- MaxInd + (CutOff/TimeStep)#CutOff time after the shallow temp peak as a possible end point
+    EndInd.2 <- MaxInd + (cutOff/TimeStep)#CutOff time after the shallow temp peak as a possible end point
     if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, CutOff time, or end of the data set happens first then set that as the EndInd
       EndInd <- EndInd.1                              
       print("EndInd (end of the data used for fitting) was set when the shallow sensor began to heat again after the peak")
