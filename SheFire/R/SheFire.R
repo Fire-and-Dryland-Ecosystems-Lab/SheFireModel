@@ -125,6 +125,9 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     postpeak <- TempRate[(which.max(Data_S)):NumRows] #rates of temp change after temp peak
     EndInd.1 <- NULL
     for (w in seq(postpeak)){
+      if (w == (length(postpeak)-2)){ #if too close to end of data to check for sustained temp rise
+        break
+      }
       if (postpeak[w] > 0 & Data_S[MaxInd + w] < Data_S[MaxInd + w+2]){ #if temp increases and the temp stays elevated
         EndInd.1 <- MaxInd + w #first time point heating began again post peak
         break
