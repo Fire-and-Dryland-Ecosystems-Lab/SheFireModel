@@ -120,24 +120,29 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     }
   } 
   #Setting EndInd
-  if(overrideClip == F){
+  if (Override.Clip == F) {
     MaxInd <- which.max(Data_S) #when is the temp peak
     postpeak <- TempRate[(which.max(Data_S)):NumRows] #rates of temp change after temp peak
-    indices <- which(postpeak > 0) #find times when heating again
-    EndInd.1 <- indices[1] #first time that heating occurs
-    if (length(indices) == 0){ #if no heating post peak, set possible end point to end of data
+    EndInd.1 <- NULL
+    for (w in seq(postpeak)){
+      if (postpeak[w] > 0 & Data_S[MaxInd + w] < Data_S[MaxInd + w+2]){ #if temp increases and the temp stays elevated
+        EndInd.1 <- MaxInd + w #first time point heating began again post peak
+        break
+      }
+    }
+    if (is.null(EndInd.1) ){ #if no heating post peak, set possible end point to end of data
       EndInd.1 <- NumRows
     }
-    EndInd.2 <- MaxInd + (cutOff/TimeStep)#cutOff time after the shallow temp peak as a possible end point
-    if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, cutOff time, or end of 
-      EndInd <- EndInd.1                              #the data set happens first then set that as the EndInd
-      print("EndInd (end of the data used) was set when the shallow sensor began to heat again after the peak")
+    EndInd.2 <- MaxInd + (CutOff/TimeStep)#CutOff time after the shallow temp peak as a possible end point
+    if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, CutOff time, or end of the data set happens first then set that as the EndInd
+      EndInd <- EndInd.1                              
+      print("EndInd (end of the data used for fitting) was set when the shallow sensor began to heat again after the peak")
     } else if (EndInd.2 < EndInd.1 & EndInd.2 < NumRows) {   
       EndInd <- EndInd.2
-      print("EndInd (end of the data used) was set by the specified cutOff time after the shallow temperature peak")
+      print("EndInd (end of the data used for fitting) was set by the specified CutOff time after the shallow temperature peak")
     } else {
-      EndInd <- nrow(input)
-      print("EndInd (end of the data used) was set at the end of the input data set")
+      EndInd <- NumRows
+      print("EndInd (end of the data used for fitting) was set as the end of the input data set")
     }
   }
   #clip data
