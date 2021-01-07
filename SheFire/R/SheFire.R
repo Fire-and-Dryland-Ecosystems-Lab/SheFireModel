@@ -216,7 +216,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
     summary.table.df[,2] <- c("Depth", sensorDepths, "", "", "", "")
     summary.table.df[5,2:3] <- c("Temp = InitTemp + (MaxTemp - InitTemp)e^(-z)", "z = (log(time) - log(TimeAtMax))^2 / ShapeConstant")
     summary.table.df[7,2] <- as.character(input.clipped$Date.Time[1])
-    summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", nrow(input.clipped)*TimeStep))
+    summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", length(BFDEquation.S)*TimeStep))
     colnames(summary.table.df) <- c("", "", "", "", "", "", "", "")
     summary.table.df <- rbind(c("Summary Table", "", "", "","", "", "", "") , summary.table.df)
   }

@@ -294,7 +294,7 @@ summary.table.df[1,] <- c("", "Depth", "InitTemp", "MaxTemp", "TimeAtMax", "Shap
 summary.table.df[,2] <- c("Depth", SensorDepths, "", "", "", "")
 summary.table.df[5,2:3] <- c("Temp = InitTemp + (MaxTemp - InitTemp)e^(-z)", "z = (log(time) - log(TimeAtMax))^2 / ShapeConstant")
 summary.table.df[7,2] <- as.character(input.clipped$Date.Time[1])
-summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", nrow(input.clipped)*TimeStep))
+summary.table.df[8,2:3] <- c(as.character(input.clipped$Date.Time[nrow(input.clipped)]), paste0("Time elapsed (min): ", length(BFDEquation.S)*TimeStep))
 colnames(summary.table.df) <- c("", "", "", "", "", "", "", "")
 summary.table.df <- rbind(c("Summary Table", "", "", "","", "", "", "") , summary.table.df)
 
