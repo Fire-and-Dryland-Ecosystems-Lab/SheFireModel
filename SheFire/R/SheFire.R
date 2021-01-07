@@ -57,7 +57,7 @@ SheFire <- function(input, sensorDepths = c(5,10, 15), cutOff = 1440, overrideCl
   if(length(timeBuffer) != 1 | mode(timeBuffer) != "numeric"){
     stop("timeBuffer must be a single numer")
   }
-  if(printPlotsTables != T & savePlotsTables != F){
+  if(printPlotsTables != T & printPlotsTables != F){
     stop("printPlotsTables must be a boolean T or F")
   }
   if(savePlotsTables != T & savePlotsTables != F){
