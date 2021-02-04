@@ -2,7 +2,7 @@
 #' 
 #' Calculates the time (min) a specified soil depth spends at or above a specified temperature threshold.
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #' 
 #' @param x The soil depth in cm.
 #' @param t The time (min) for when to cut off the calculation (use a single number) or the time range (min) (use a list of two numbers) across which to calculate, defaults to the full model time period.
