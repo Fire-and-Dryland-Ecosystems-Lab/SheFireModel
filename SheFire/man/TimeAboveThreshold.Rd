@@ -24,7 +24,7 @@ Function returns the length of time in minutes that the soil depth spent at or a
 Calculates the time (min) a specified soil depth spends at or above a specified temperature threshold.
 }
 \details{
-Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 }
 \examples{
 inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data

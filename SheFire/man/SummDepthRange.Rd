@@ -21,10 +21,10 @@ SummDepthRange(x, inc = 0.5, t = NULL, res = 1, model)
 The function returns a data.frame of the mean, standard deviation, median, and maximum temperature for the depth range at each time point.
 }
 \description{
-Calculates the mean temp, standard deviation, median temp, and max temp at each time point for a range of soil depths. The user can enter the shallow and deep bounds for the depth range or enter a single number and the range will default to that depth up to the shallowest depth calculable. NOTE: the deepest depth calculated will be the depth closest to the user defined max depth without exceeding it that can be reached by incrementing from the shallowest depth (example: if your shallow depth is 2.3 and the increment is 0.5, the closest to a max depth of 4 would be 3.8cm). Once you have the values calculated at each time point, you can then run further statistics or functions on those temperatures.
+Calculates the mean temp, standard deviation, median temp, and max temp at each time point for a range of soil depths. The user can enter the shallow and deep bounds for the depth range or enter a single number and the range will default to that depth up to the shallowest depth calculable. NOTE: the deepest depth calculated will be the depth closest to the user defined max depth without exceeding it that can be reached by incrementing from the shallowest depth (example: if your shallow depth is 2.3cm and the increment is 0.5cm, the closest to a max depth of 4 would be 3.8cm). Once you have the values calculated at each time point, you can then run further statistics or functions on those temperatures.
 }
 \details{
-Example data from US FOrest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 }
 \examples{
 inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data

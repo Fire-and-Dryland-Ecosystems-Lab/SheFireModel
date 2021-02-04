@@ -15,7 +15,7 @@ SurvivalPercent(x, deltaS, deltaH, res = 1, temp = 48, model)
 
 \item{res}{The temporal resolution (in min) at which to calculate the temperatures. Default is one minute.}
 
-\item{temp}{The threshold temperature when survival will begin to be impacted. Default is 48 based on Miesel et al (2020) and personal communication with Matthew Dickinson. See full works cited in package description.}
+\item{temp}{The threshold temperature when survival will begin to be impacted. Default is 48 for physiologically active tissue based on Miesel et al (2020) and personal communication with Matthew Dickinson.}
 
 \item{model}{The model object (a list) from the SheFire function containing the equations and data that comprise the model.}
 }
@@ -26,7 +26,7 @@ This function returns a list containing the final survival (1 - 100 percent, 0 -
 Models survival of the specified biological organism/tissue/protein/etc at the specified soil depth over time. The function requires two thermal tolerance parameters, deltaS and deltaH, specific to the organism/tissue/etc of interest. These parameters are specific to the kind of impact the user is looking at because different biological systems (seeds, roots, microorganisms, etc) have varying heat tolerances.
 }
 \details{
-Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 Other papers cited in this function: DICKINSON, M. B., & Johnson, E. A. (2004). Temperature-dependent rate models of vascular cambium cell mortality. Canadian Journal of Forest Research, 34(3), 546-559. ; MARTIN, R. E., Cushwa, C. T., & Miller, R. L. (1969). Fire as a physical factor in wildland management. In In: Proceedings Annual [9th] Tall Timbers Fire Ecology Conference. Tallahassee, FL. Tall Timbers Research, Inc., Tallahassee, FL. 271-288. (pp. 271-288). ; MIESEL, J. R., Dickinson, M. B., Kolka, R. K., Kern, C. C., Donner, D. M., Quigley, K. M., & Bushman, M. M. (2020). Manipulating soil heating patterns to optimize barrens restoration. FireScience.gov. ; ROSENGERG, B., Kemeny, G., Switzer, R. C., & Hamilton, T. C. (1971). Quantitative evidence for protein denaturation as the cause of thermal death. Nature, 232(5311), 471-473.
 }
 \examples{
@@ -48,7 +48,7 @@ ggplot(PlotSurvival, aes (x = Time, y = Survival)) +
 \code{\link{SheFire}}, \code{\link{SurvivalDepth}}
 }
 \author{
-MaryKBrady, based on work by Matthew Dickinson
+MaryKBrady, based on work by Matthew B Dickinson
 }
 \keyword{Fire,}
 \keyword{Soil,}

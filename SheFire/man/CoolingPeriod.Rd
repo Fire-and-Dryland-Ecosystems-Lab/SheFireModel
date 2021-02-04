@@ -20,7 +20,7 @@ The function returns the temperatures at the specified time interval (res) for t
 Isolates the period of time when the soil depth of interest is cooling and returns the temperature values for that period.
 }
 \details{
-Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 }
 \examples{
 inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data

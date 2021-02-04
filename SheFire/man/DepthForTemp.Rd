@@ -22,7 +22,7 @@ This function returns the deepest depth (in cm) that reached the specified tempe
 Calculates the deepest depth (cm) that is reached by the specified temperature. When the exact depth is not tested, the function will choose the shallower of the two bounding depths (example: if 60C actually reaches 5.4cm but the function is set up such that it checks 5cm and 5.5cm, it will return 5cm). Using a smaller depth increment (inc) will increase precision.
 }
 \details{
-Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 }
 \examples{
 inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data
