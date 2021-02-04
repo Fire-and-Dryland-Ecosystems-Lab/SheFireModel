@@ -60,7 +60,7 @@ TempOverTime <- function(x, t = NULL, res = 1, model){
     print("Warning: as you get very shallow, the uncertainty increases as the temperatures become more extreme. The depth at which the predictions no longer make logical sense varies with the burn but generally, looking at plot of the temps over time is enough to determine when that is the case (plot shallow depths alongside deeper depths like 2 and 3cm to compare). The shallowest reasonable depth may in fact be a little deeper than the shallowest depth that it is possible for the model to calculate. Generally, 0.5cm and deeper is reasonable.")
   }
   if (x > (model$SensorDepths[3]+5)){ #warning if trying to use deeper then deepest sensor + 5cm
-    print("Warning: No deepest depth that can be predicted by this model has been set. Until someone is able to conduct further validation experiments, use caution predicting more than about 5cm beyond your deepest sensor. Maybe plot the temperature over time for the deep depth alongside a few shallower depths and see if the results makes sense")
+    print("Warning: You are using depths more than 5cm deeper than the deepest sensor used to create the model. Proceed with caution")
   }
   if(is.null(t)){ #if user did not specify time
     t <- model$FullTime
