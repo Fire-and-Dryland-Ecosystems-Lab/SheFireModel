@@ -1,19 +1,19 @@
 #' Survival Depth
 #' 
-#' Calculates the depth that had the specified survival (ie at what depth was the cassia seed survival 80 percent?). If the exact depth that had the exact specified survival is not checked, the function will return the next shallowest depth that was tested and print a text string with the details (example: 50 percent survival at 5.67cm but the function is set up to check 5.5 and 6, it will return 5.5). Using a smaller depth increment (inc) will increase precision. The function requires two thermal tolerance parameters, deltaS and deltaH, specific to the organism/tissue/etc of interest. These parameters are specific to the kind of impact the user is looking at because different biological systems (seeds, roots, microorganisms, etc) have varying heat tolerances.
+#' Calculates the depth that had the specified survival (ie at what depth was the cassia seed survival 80 percent?). If the exact depth that had the exact specified survival is not checked, the function will return the next shallowest depth that was tested and print a text string with the details (example: 50 percent survival is at 5.67cm but the function is set up to check 5.5cm and 6cm, it will return 5.5cm). Using a smaller depth increment (inc) will increase precision. The function requires three thermal tolerance parameters, deltaS, deltaH, and a lower temperature limit, which are specific to the organism/tissue/etc of interest. These parameters are specific to the kind of impact the user is looking at because different biological systems (seeds, roots, microorganisms, etc) have varying heat tolerances.
 #'
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #' Papers cited in this function: DICKINSON, M. B., & Johnson, E. A. (2004). Temperature-dependent rate models of vascular cambium cell mortality. Canadian Journal of Forest Research, 34(3), 546-559. ; MARTIN, R. E., Cushwa, C. T., & Miller, R. L. (1969). Fire as a physical factor in wildland management. In In: Proceedings Annual [9th] Tall Timbers Fire Ecology Conference. Tallahassee, FL. Tall Timbers Research, Inc., Tallahassee, FL. 271-288. (pp. 271-288). ; MIESEL, J. R., Dickinson, M. B., Kolka, R. K., Kern, C. C., Donner, D. M., Quigley, K. M., & Bushman, M. M. (2020). Manipulating soil heating patterns to optimize barrens restoration. FireScience.gov. ; ROSENGERG, B., Kemeny, G., Switzer, R. C., & Hamilton, T. C. (1971). Quantitative evidence for protein denaturation as the cause of thermal death. Nature, 232(5311), 471-473.
 #'
 #' @param survivalValue The survival threshold of interest in decimal form (60 percent survival -> 0.6).
 #' @param deltaS The activation entropy (units of J*mol-1*K-1) for the organism/tissue/etc of interest.
 #' @param deltaH The activation enthalpy (units of J*mol-1) for the organism/tissue/etc of interest. 
-#' @param temp The threshold temperature when survival will begin to be impacted. Default is 48 based on Miesel et al (2020) and personal communication with Matthew Dickinson.
+#' @param temp The threshold temperature when survival will begin to be impacted. Default is 48 for physiologically active tissue based on Miesel et al (2020) and personal communication with Matthew B Dickinson.
 #' @param inc The final increment (in cm) used to calculate what depths to check (ie every 0.5 cm). Default is 0.5.
 #' @param res The temporal resolution (in min) at which to calculate the temperatures. Default is one minute. Res greater than 1 is not recommended for this function in particular because of how strongly it can impact results.
 #' @param model The model object (a list) from the SheFire function containing the equations and data that comprise the model.
 #' @return This function returns the depth that exactly reached the survival threshold or, if no depth tested was exact, the depth tested that was closest to and less than the survival threshold (higher mortality). The function also prints a text string explaining if the returned depth was at the exact threshold or not. If all depths tested have a lower survival, returns NA. If all depths tested have a higher survival, returns NULL.
-#' @author MaryKBrady, based on work by Matthew Dickinson
+#' @author MaryKBrady, based on work by Matthew B Dickinson
 #' @seealso \code{\link{SheFire}}, \code{\link{SurvivalPercent}}
 #' @keywords Fire, Soil, Temperature
 #' @examples 

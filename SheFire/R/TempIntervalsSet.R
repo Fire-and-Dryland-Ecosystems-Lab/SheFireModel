@@ -2,7 +2,7 @@
 #' 
 #' Calculates time spent in different temp ranges (bins) for a specified soil depth(s). The user sets the lower bounds of each bin (bins don't have to be equal sizes). The final bin includes all temps over the last input temp (no upper bound to temps included in last bin).
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #' 
 #' @param x The soil depth in cm. Either a single number or a vector of numbers.
 #' @param bins A vector of the lower bounds of all the temperature bins.

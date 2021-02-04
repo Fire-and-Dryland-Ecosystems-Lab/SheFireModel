@@ -2,7 +2,7 @@
 #' 
 #' Isolates the period of time when the soil depth of interest is cooling and returns the temperature values for that period.
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #'
 #' @param x The soil depth in cm.
 #' @param res The temporal resolution (in min) at which to calculate the temperatures. Default is one minute.

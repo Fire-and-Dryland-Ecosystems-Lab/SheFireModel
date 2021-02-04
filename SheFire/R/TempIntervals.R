@@ -2,7 +2,7 @@
 #' 
 #' Calculates total time spent in different temperature ranges (bins) for a specified soil depth. The bin boundary temperatures are set by the function depending on the temps reached at that depth and the bin size set by the user.
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #' 
 #' @param x The soil depth in cm.
 #' @param bin The size, in degrees, of each temperature bin (ie bins of 5 degrees: 15-19.9, 20-24.9). Defaults is 5.

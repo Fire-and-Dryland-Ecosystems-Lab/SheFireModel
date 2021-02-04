@@ -2,7 +2,7 @@
 #' 
 #' Isolates the portion of time when the soil depth of interest is heating and returns the temperature values for that period. 
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
 #' For discussion on reasons to isolate just the heating limb of the temperature curve see: McGranahan, D. A. (2020). An inconvenient truth about temperature-time data from thermocouples. Plant Ecology, 221(11), 1091-1104.
 #' 
 #' 

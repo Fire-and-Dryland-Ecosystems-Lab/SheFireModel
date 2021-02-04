@@ -1,8 +1,9 @@
 #' SheFire Model
 #' 
-#' This function takes data from three co-located soil temperature sensors at different depths during a fire and calculates BFD equations to model each depth. With parameter regression set to T, the model will also calculate regression equations for each of the BFD parameters. Those regressions enable temperature over time to be modeled at unmeasured soil depths. 
+#' This function takes data from three co-located soil temperature sensors at different depths during a fire and fits an equation that closely matches the typical rise and fall of temperatures in soils heated by wildland fires. The equation originated in the building fire literature and is called the BFD equation (Barnett 2002). With parameter regression set to T, the model will also calculate regression equations for each of the BFD equation parameters. Those regressions enable temperature over time during the fire to be modeled at unmeasured soil depths. 
 #' 
-#' Example data from US Forest Service FBAT: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Example data from US Forest Service Fire Behavior Assessment Team: https://www.fs.fed.us/adaptivemanagement/reports/fbat/2019_FBATReport_WalkerFire_10112019_Final.pdf
+#' Papers Cited in this function: Barnett, C.R., 2002. BFD curve: a new empirical model for fire compartment temperatures. Fire Safety Journal, 37(5), pp.437-463.
 #' 
 #' @param input Data.frame of data organized with columns: Date.Time, TimeCounter, Temp_S, Temp_M, Temp_D (columns must be in this order) where S is the shallow sensor, M is the middle sensor, and D is the deep sensor. Rows: each time point. TimeCounter must start at 1*TimeStep (data logging rate), not 0.
 #' @param sensorDepths List of the temperature sensor depths in centimeters.
@@ -19,7 +20,7 @@
 #' @param saveName The name that will be used for saving the plots and tables. Default is "SheFire".
 #' @param saveDirectory File path for where to save the plots and tables, if different from current working directory.
 #' @return If not calculating the regressions, the function returns a list of the equation values at time intervals set in res, the time resolution (res), the summary data.frame containing the equation parameters, and information about the time at the beginning and end of the clipped data set used to calculate those equations. If calculating the regressions, the function returns a list of all the equations and data necessary calculate temperature over time for a range of soil depths and run the application functions in this package. The list contains: BFDEquation - a function for calculating the temp over time given the BFD parameters; MaxTemp.reg, TimeAtMax.reg, Shape.reg, InitTemp.reg - functions to calculate the BFD parameters for a given soil depth; MaxTemp.coeffs, TimeAtMax.coeffs, Shape.coeffs, InitTemp.coeffs - the coefficients calculated for their respective parameter functions; InitTemp.byDepth - additional parameter needed for InitTemp.reg function, list of InitTemps calculated for the sensor depths; sensorDepths - additional parameter needed for InitTemp.reg function, list of sensor depths; Shallowest - shallowest depth (in cm) that it is mathematically possible for the model to calculate (note: shallowest depth for which the model is reasonable may be slightly deeper, see notes elsewhere in package about checking shallow depth for reasonability); FullTime - time in minutes that the model covers, StartTime - time at the beginning of the model time range, EndTime - time at the end of the model time range.
-#' @author MaryKBrady, based on work by Matthew Dickinson
+#' @author MaryKBrady, based on work by Matthew B Dickinson
 #' @keywords Fire, Soil, Temperature
 #' @examples 
 #' inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data

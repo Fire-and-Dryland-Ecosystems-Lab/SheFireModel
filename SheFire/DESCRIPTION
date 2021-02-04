@@ -3,9 +3,9 @@ Type: Package
 Title: Soil Heating in Fire: A model for soil heating during fires
 Version: 1.0
 Date: 2020-12-21
-Author: Mary K Brady [aut, cre] - based on work by Matthew Dickinson 
+Author: Mary K Brady [aut, cre] - based on initial MATLAB code by Matthew B Dickinson 
 Maintainer: Mary Brady: <mary.brady@comcast.net>, Erin Hanan: <ehanan@unr.edu>
-Description: This package contains the functions needed to build and use the SheFire model for soil heating during fires. It requires input data from three soil depths then calculates equations to interpolate and extrapolate to other soil dpeths. The model building function (SheFire) has an output model object that can be called in the included application functions or in user designed function to address research questions. A fully annotated and explained copy of the model function can be found at: https://github.com/Fire-and-Dryland-Ecosystems-Lab/SheFireModel 
+Description: This package contains the functions needed to build and use the Soil Heating in Fire (SheFire) model for soil heating during fires. It requires input data from three soil depths then calculates equations to interpolate and extrapolate to other soil depths. The model building function (SheFire) has an output model object that can be called in the included application functions or in user designed function to address research questions. A fully annotated and explained copy of the model function can be found at: https://github.com/Fire-and-Dryland-Ecosystems-Lab/SheFireModel 
 Depends: R (>= 4.0.0), ggplot2, ggpubr, evobiR
 License: GPL-2
 Encoding: UTF-8
