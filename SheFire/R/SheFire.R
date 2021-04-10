@@ -7,7 +7,7 @@
 #' 
 #' @param input Data.frame of data organized with columns: Date.Time, TimeCounter, Temp_S, Temp_M, Temp_D (columns must be in this order) where S is the shallow sensor, M is the middle sensor, and D is the deep sensor. Rows: each time point. TimeCounter must start at 1*TimeStep (data logging rate), not 0.
 #' @param sensor.depths List of the temperature sensor depths in centimeters.
-#' @param cutOff The time (min) after the shallow sensor's maximum temperature that the code will cut off the data set for fitting. It will use this cut off time unless the temps rise again (ie diurnal heating) or the data set ends first in which cases, those will be set as the end points. The default is 24 hours (1440 min) but look at your data and do what makes sense (Some hot, smoldering fires will be cooling for more than 24 hrs).
+#' @param cutoff The time (min) after the shallow sensor's maximum temperature that the code will cut off the data set for fitting. It will use this cut off time unless the temps rise again (ie diurnal heating) or the data set ends first in which cases, those will be set as the end points. The default is 24 hours (1440 min) but look at your data and do what makes sense (Some hot, smoldering fires will be cooling for more than 24 hrs).
 #' @param override.clip This parameter will prevent the function from clipping the data set. Default is False. Only change this if you have manually clipped the input data to exactly how you want it analyzed.
 #' @param moving.window This option smooths the data when locating the starting point for heating in the shallow sensor. This can be useful in low temperature fires in particular, when the fire heating may not be faster than diurnal heating on a point to point basis. The default is False.
 #' @param window.size The size (in time points) of the window that is used in smoothing with moving.window. Default is 3.
@@ -27,7 +27,7 @@
 #' model_example <- shefire(input = inputFile )  #create model with all default settings
 #' @export
 
-shefire <- function(input, sensor.depths = c(5,10, 15), cutOff = 1440, override.clip = F, moving.window = F, window.size = 3, 
+shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.clip = F, moving.window = F, window.size = 3, 
                     regression = T, res = 1, corr.threshold = 0.80, time.buffer = 30, print.plots.table = F, save.plots.table = F, save.name = "SheFire", 
                     save.directory = getwd()){
   if(colnames(input)[1] != "Date.Time"| colnames(input)[2] != "TimeCounter"| colnames(input[3]) != "Temp_S"| colnames(input)[4] != "Temp_M"| colnames(input)[5] != "Temp_D"){
@@ -40,8 +40,8 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutOff = 1440, override.
   if(length(sensor.depths) != 3 | mode(sensor.depths) != "numeric"){
     stop("You need to have three numeric sensor depths to run this model")
   }
-  if(length(cutOff) != 1 | mode(cutOff) != "numeric"){
-    stop("cutOff must be a single number")
+  if(length(cutoff) != 1 | mode(cutoff) != "numeric"){
+    stop("cutoff must be a single number")
   }
   if(override.clip != T & override.clip != F){
     stop("override.clip must be a boolean T or F")
@@ -137,13 +137,13 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutOff = 1440, override.
     if (is.null(EndInd.1) ){ #if no heating post peak, set possible end point to end of data
       EndInd.1 <- NumRows
     }
-    EndInd.2 <- MaxInd + (cutOff/TimeStep)#CutOff time after the shallow temp peak as a possible end point
-    if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, CutOff time, or end of the data set happens first then set that as the EndInd
+    EndInd.2 <- MaxInd + (cutoff/TimeStep)#Cutoff time after the shallow temp peak as a possible end point
+    if (EndInd.1 < EndInd.2 & EndInd.1 < NumRows){ #find if temp rise post peak, cutoff time, or end of the data set happens first then set that as the EndInd
       EndInd <- EndInd.1                              
       print("EndInd (end of the data used for fitting) was set when the shallow sensor began to heat again after the peak")
     } else if (EndInd.2 < EndInd.1 & EndInd.2 < NumRows) {   
       EndInd <- EndInd.2
-      print("EndInd (end of the data used for fitting) was set by the specified CutOff time after the shallow temperature peak")
+      print("EndInd (end of the data used for fitting) was set by the specified cutoff time after the shallow temperature peak")
     } else {
       EndInd <- NumRows
       print("EndInd (end of the data used for fitting) was set as the end of the input data set")
