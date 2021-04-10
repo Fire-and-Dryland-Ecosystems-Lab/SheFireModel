@@ -15,7 +15,7 @@ If you contribute or improve an application function:
      make sure it works with the WlkrPlot4NE.csv example data set
      put your name and contact info on the new/updated function help/documentation page
      make the help page actually helpful for folks
-     function names are capitalized, parameters are not
+     function names are lowercase and use "_" between words, parameters are not capitalized either and use "." between words
      parameter names should be consistent with other functions in the package (for example: x is always depth, t is always time)
      
 If you contribute to the model development (SheFire function):
