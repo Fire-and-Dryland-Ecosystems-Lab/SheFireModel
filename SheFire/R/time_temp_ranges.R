@@ -1,4 +1,4 @@
-#' Time in Temperature Intervals
+#' Time in Temperature Ranges
 #' 
 #' Calculates total time spent in different temperature ranges (bins) for a specified soil depth. The bin boundary temperatures are set by the function depending on the temps reached at that depth and the bin size set by the user.
 #' 
@@ -7,25 +7,25 @@
 #' @param x The soil depth in cm.
 #' @param bin The size, in degrees, of each temperature bin (ie bins of 5 degrees: 15-19.9, 20-24.9). Defaults is 5.
 #' @param res The temporal resolution (in min) at which to calculate the temperatures. Default is one minute.
-#' @param model The model object (a list) from the SheFire function containing the equations and data that comprise the model.
+#' @param model The model object (a list) from the shefire function containing the equations and data that comprise the model.
 #' @return This function returns a data.frame of the bin temperature boundaries and the time (min) spent in each temp range.
 #' @author MaryKBrady
-#' @seealso \code{\link{SheFire}}, \code{\link{TimeTempIntervalsSet}}
+#' @seealso \code{\link{shefire}}, \code{\link{set_temp_ranges}}
 #' @keywords Fire, Soil, Temperature
 #' @examples 
 #' inputFile <- read.csv(file.path(system.file("external", package="SheFire"), "WalkerPlot4NE.csv")) #read in example data
-#' model_example <- SheFire(input = inputFile )  #create model with all default settings
+#' model_example <- shefire(input = inputFile )  #create model with all default settings
 #' 
-#' binned5cm <- TimeTempIntervals(x = 5, bin = 5, model = model_example) #res defaults to 1 minute
-#' binned5cm.res <- TimeTempIntervals(x = 5, bin = 5, res = 0.5, model = model_example) #changed temporal resolution to .5 min
+#' binned5cm <- time_temp_ranges(x = 5, bin = 5, model = model_example) #res defaults to 1 minute
+#' binned5cm.res <- time_temp_ranges(x = 5, bin = 5, res = 0.5, model = model_example) #changed temporal resolution to .5 min
 #' @export
 
-TimeTempIntervals <- function(x, bin = 5, res = 1, model){
-  #x and res checked in TempOverTime function
+time_temp_ranges <- function(x, bin = 5, res = 1, model){
+  #x and res checked in temp_over_time function
   if(mode(bin) != "numeric" | length(bin) != 1){  #is bin valid
     stop("increment must be a single number")
   }
-  equation <- TempOverTime(x = x, res = res, model = model)
+  equation <- temp_over_time(x = x, res = res, model = model)
   rangetemp <- seq(from = floor(min(equation)), to = ceiling(max(equation)), by = bin) #bin boundaries
   if ((ceiling(max(equation))-floor(min(equation))) %% bin != 0){ #if doesn't divide nicely, adjust final bin
     rangetemp <- c(rangetemp, (tail(rangetemp, n=1)+bin))
