@@ -7,7 +7,7 @@
 shefire(
   input,
   sensor.depths = c(5, 10, 15),
-  cutOff = 1440,
+  cutoff = 1440,
   override.clip = F,
   moving.window = F,
   window.size = 3,
@@ -26,7 +26,7 @@ shefire(
 
 \item{sensor.depths}{List of the temperature sensor depths in centimeters.}
 
-\item{cutOff}{The time (min) after the shallow sensor's maximum temperature that the code will cut off the data set for fitting. It will use this cut off time unless the temps rise again (ie diurnal heating) or the data set ends first in which cases, those will be set as the end points. The default is 24 hours (1440 min) but look at your data and do what makes sense (Some hot, smoldering fires will be cooling for more than 24 hrs).}
+\item{cutoff}{The time (min) after the shallow sensor's maximum temperature that the code will cut off the data set for fitting. It will use this cut off time unless the temps rise again (ie diurnal heating) or the data set ends first in which cases, those will be set as the end points. The default is 24 hours (1440 min) but look at your data and do what makes sense (Some hot, smoldering fires will be cooling for more than 24 hrs).}
 
 \item{override.clip}{This parameter will prevent the function from clipping the data set. Default is False. Only change this if you have manually clipped the input data to exactly how you want it analyzed.}
 
