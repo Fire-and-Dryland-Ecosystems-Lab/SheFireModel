@@ -15,8 +15,8 @@
 #' @param res Only needed if you are not calculating the regressions. This sets the temporal resolution (in min) for the output temperatures from the equations fit to the sensor data. The temp values (at every time point based on the temporal resolution) are returned in the return list at the end of the function (ie temperature at every minute, or every half minute, or every 5 minutes, etc). Default is 1 minute.
 #' @param corr.threshold Threshold for accepted level of correlation between the input data and the fitted BFD equations as well as between the calculated regression equations and the BFD parameters from the three sensor depths. Correlations less than the threshold will cause the function to throw an error message. Default is 0.8.
 #' @param time.buffer The time (min) added before the temperature begins to rise for the shallow sensor. If you do need extrapolations to depths shallower than your shallow sensor or if you are not calculating the regressions, you can set time.buffer to 0. The buffer is needed to be able to extrapolate to shallower depths with the parameter regressions. You want to keep the time.buffer as short as possible because longer buffers can worsen the fits for equations and regressions. The default is set to 30 minutes.
-#' @param print.plots.table Print the standard plots of data (plotted at the temporal resolution of the input data, not "res") and equations as well as the two summary tables containing equation details and fit information. Default is False.
-#' @param save.plots.table Save the standard plots of data (plotted at the temporal resolution of the input data, not "res") and equations as jpeg images and the summary tables containing equation details and fit information as CSV files. Default is False.
+#' @param print.plots.tables Print the standard plots of data (plotted at the temporal resolution of the input data, not "res") and equations as well as the two summary tables containing equation details and fit information. Default is False.
+#' @param save.plots.tables Save the standard plots of data (plotted at the temporal resolution of the input data, not "res") and equations as jpeg images and the summary tables containing equation details and fit information as CSV files. Default is False.
 #' @param save.name The name that will be used for saving the plots and tables. Default is "SheFire".
 #' @param save.directory File path for where to save the plots and tables, if different from current working directory.
 #' @return If not calculating the regressions, the function returns a list of the equation values at time intervals set in res, the time resolution (res), the summary data.frame containing the equation parameters, and information about the time at the beginning and end of the clipped data set used to calculate those equations. If calculating the regressions, the function returns a list of all the equations and data necessary calculate temperature over time for a range of soil depths and run the application functions in this package. The list contains: BFDEquation - a function for calculating the temp over time given the BFD parameters; MaxTemp.reg, TimeAtMax.reg, Shape.reg, InitTemp.reg - functions to calculate the BFD parameters for a given soil depth; MaxTemp.coeffs, TimeAtMax.coeffs, Shape.coeffs, InitTemp.coeffs - the coefficients calculated for their respective parameter functions; InitTemp.byDepth - additional parameter needed for InitTemp.reg function, list of InitTemps calculated for the sensor depths; sensor.depths - additional parameter needed for InitTemp.reg function, list of sensor depths; Shallowest - shallowest depth (in cm) that it is mathematically possible for the model to calculate (note: shallowest depth for which the model is reasonable may be slightly deeper, see notes elsewhere in package about checking shallow depth for reasonability); FullTime - time in minutes that the model covers, StartTime - time at the beginning of the model time range, EndTime - time at the end of the model time range.
@@ -28,7 +28,7 @@
 #' @export
 
 shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.clip = F, moving.window = F, window.size = 3, 
-                    regression = T, res = 1, corr.threshold = 0.80, time.buffer = 30, print.plots.table = F, save.plots.table = F, save.name = "SheFire", 
+                    regression = T, res = 1, corr.threshold = 0.80, time.buffer = 30, print.plots.tables = F, save.plots.tables = F, save.name = "SheFire", 
                     save.directory = getwd()){
   if(colnames(input)[1] != "Date.Time"| colnames(input)[2] != "TimeCounter"| colnames(input[3]) != "Temp_S"| colnames(input)[4] != "Temp_M"| colnames(input)[5] != "Temp_D"){
     stop("input must have columns: Date.Time, TimeCounter, Temp_S, Temp_M, and Temp_D in that order. See help page for more details")
@@ -58,17 +58,17 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
   if(length(time.buffer) != 1 | mode(time.buffer) != "numeric"){
     stop("time.buffer must be a single numer")
   }
-  if(print.plots.table != T & print.plots.table != F){
-    stop("print.plots.table must be a boolean T or F")
+  if(print.plots.tables != T & print.plots.tables != F){
+    stop("print.plots.tables must be a boolean T or F")
   }
-  if(save.plots.table != T & save.plots.table != F){
-    stop("save.plots.table must be a boolean T or F")
+  if(save.plots.tables != T & save.plots.tables != F){
+    stop("save.plots.tables must be a boolean T or F")
   }
   #packages
   if(moving.window == T){
     require(evobiR)
   }
-  if(print.plots.table == T | save.plots.table ==T){
+  if(print.plots.tables == T | save.plots.tables ==T){
     require(ggplot2)
     require(ggpubr)
     PlotTheme <- theme(panel.background = element_rect(fill = "white"),
@@ -83,7 +83,7 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
                             axis.line = element_line(size = 1, colour = "black"),
                             axis.text = element_text(colour = "black", size = rel(1)))
   }
-  if(save.plots.table == T){ #set working directory for saving
+  if(save.plots.tables == T){ #set working directory for saving
     og_dir <- getwd() #keep this to reset at end of function
     setwd(save.directory)
   }
@@ -208,7 +208,7 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
   Pearson.D <- Results.df[3,2]
   BFDEquation.D <- BFDEquation(timecounter.res, InitTemp.D, MaxTemp.D, TimeAtMax.D, ShapeConstant.D)
   #Make summary table from Results.df 
-  if(print.plots.table == T | save.plots.table == T | regression == F){
+  if(print.plots.tables == T | save.plots.tables == T | regression == F){
     Results.df <- Results.df[,c("Depth", "InitTemp", "MaxTemp", "TimeAtMax", "Shape", "RMSE", "Pearson")] #reorder
     summary.table <- c("", "Shallow", "Middle", "Deep", "Formula", "StartInd to real time conversion", "StartInd", "End of data set used")
     summary.table.df <- data.frame(summary.table)
@@ -222,7 +222,7 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
     summary.table.df <- rbind(c("Summary Table", "", "", "","", "", "", "") , summary.table.df)
   }
   #Make plots
-  if(print.plots.table == T | save.plots.table == T){
+  if(print.plots.tables == T | save.plots.tables == T){
     #need to plot on same temporal resolution as input data
     BFDEquation.S.plot <- BFDEquation(timecounter, InitTemp.S, MaxTemp.S, TimeAtMax.S, ShapeConstant.S)
     BFDEquation.M.plot <- BFDEquation(timecounter, InitTemp.M, MaxTemp.M, TimeAtMax.M, ShapeConstant.M)
@@ -273,13 +273,13 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
       PlotTheme
   }
   #printing and saving
-  if(print.plots.table == T & regression == F){  #print all plots and tables together at the end if continuing to regressions
+  if(print.plots.tables == T & regression == F){  #print all plots and tables together at the end if continuing to regressions
     print(input_plot)
     print(Figure_an)
     print(All3)
     print(summary.table.df)
   }
-  if(save.plots.table == T){
+  if(save.plots.tables == T){
     ggsave(paste0(save.name,"_input.jpeg"), plot = input_plot)
     ggsave(paste0(save.name, "_dataWithEqua.jpeg"), plot = Figure_an)
     ggsave(paste0(save.name, "_equations.jpeg"), plot = All3)
@@ -352,7 +352,7 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
     print(paste("InitTemp pearson correlation was below the threshold with a value of:", InitTemp.pearson$estimate, "Therefore, the parameter regression will use the initial temperature from the nearest sensor as the initial temperature parameter instead of the calculated equation for InitTemp. The correlation threshold can be adjusted"))  
   } else {(ForTable <- "This should not be printed")} #set ForTable if Not using closest.sensor
   #regression summary table
-  if(print.plots.table == T | save.plots.table ==T){
+  if(print.plots.tables == T | save.plots.tables ==T){
     regressionSummary <- c("MaxTemp", "InitTemp", "TimeAtMax", "Shape", "Shallowest", "StartTime ", "EndTime")
     regressionSummary.df <- as.data.frame(regressionSummary)
     regressionSummary.df[,2] <- c("r squared", "pearson r", "r squared", "pearson r", paste(Shallowest, "cm"), StartTime, EndTime)
@@ -376,14 +376,14 @@ shefire <- function(input, sensor.depths = c(5,10, 15), cutoff = 1440, override.
     regressionSummary.df <- rbind(c("regression Table", "", "", "") , regressionSummary.df)
   }
   #printing and saving 
-  if(print.plots.table == T){
+  if(print.plots.tables == T){
     print(input_plot)
     print(Figure_an)
     print(All3)
     print(summary.table.df)
     print(regressionSummary.df)
   }
-  if(save.plots.table == T){
+  if(save.plots.tables == T){
     write.csv(regressionSummary.df, paste0(save.name, "_regtable.csv"))
     setwd(og_dir)  #return working directory to what it was before function was called, nothing more to be saved
   }
