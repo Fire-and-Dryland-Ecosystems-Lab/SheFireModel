@@ -83,7 +83,7 @@ temp_over_time <- function(x, t = NULL, res = 1, model){
   t.res <- seq(from = t[1], to = t[2], by = res)
   maxtemp <- model$MaxTemp.reg(x, MaxTemp.coeffs = model$MaxTemp.coeffs)  #set the parameters using the regressions
   timeatmax <- model$TimeAtMax.reg(x, TimeAtMax.coeffs = model$TimeAtMax.coeffs)
-  inittemp <- model$InitTemp.reg(x, InitTemp.coeffs = model$InitTemp.coeffs, InitTemp.byDepth = model$InitTemp.byDepth, SensorDepths = model$SensorDepths)
+  inittemp <- model$InitTemp.reg(x, InitTemp.coeffs = model$InitTemp.coeffs, InitTemp.byDepth = model$InitTemp.byDepth, sensor.depths = model$SensorDepths)
   shape <- model$Shape.reg(x, Shape.coeffs = model$Shape.coeffs)
   equation <- model$BFDEquation(t.res, inittemp, maxtemp, timeatmax, shape)  #calculate the equation
   return(equation)
