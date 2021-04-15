@@ -1,5 +1,5 @@
 # SheFireModel
-Soil Heating in Fire (SheFire) Model:  Additional detailed files and an R package to build and use a SheFire model for how different soil depths heat and cool during fires
+Soil Heating in Fire (SheFire) Model: An R package and detailed explanatory files to build and use a SheFire model for how soil heats and cools during fires
 
 The model was developed by Mary K Brady in collaboration with Matthew B Dickinson, Jessica Miesel, and Erin J Hanan
 
@@ -15,10 +15,10 @@ If you contribute or improve an application function:
      make sure it works with the WlkrPlot4NE.csv example data set
      put your name and contact info on the new/updated function help/documentation page
      make the help page actually helpful for folks
-     function names are lowercase and use "_" between words, parameters are not capitalized either and use "." between words
+     function names are lowercase and use "_" between words, parameters are lowercase too and use "." between words
      parameter names should be consistent with other functions in the package (for example: x is always depth, t is always time)
      
-If you contribute to the model development (SheFire function):
+If you contribute to the model development (shefire function):
 
      make sure it still works with WlkrPlot4NE.csv example data set
      adjust the help/documentation page as needed
