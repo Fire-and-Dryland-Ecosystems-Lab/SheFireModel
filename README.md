@@ -27,3 +27,5 @@ If you contribute to the model development (shefire function):
      please! consider updating the annotated .Rmd scripts to reflect your changes
 
 To have your contribution added to the model, create a pull request to the "development" branch and inculde a summary of what you added or changed as well as the relevant results using the WlkrPlot4NE.csv data set (either the function output or the model object from SheFire). We will periodically update "main" with the changes pulled to "development"
+
+https://doi.org/10.5281/zenodo.4694828
